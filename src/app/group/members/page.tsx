@@ -1,5 +1,6 @@
 import { UserPlus } from "lucide-react";
 import { ActionForm, Field } from "@/components/ui/action-form";
+import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
 import { getMessages } from "@/lib/i18n";
 import { decimalToPaise, formatPaise } from "@/lib/money";
@@ -22,11 +23,22 @@ export default async function MembersPage() {
       shareCount: true,
       monthlyHafta: true,
       status: true,
+      userId: true,
+      defaultDecision: true,
       contributions: { select: { amountPaid: true } },
     },
   });
 
   const whole = { whole: true } as const;
+
+  const decisionOptions = [
+    { value: "PENDING", label: t.members.decisionPending },
+    { value: "RETURN_FULL", label: t.members.decisionReturnFull },
+    { value: "RETURN_PARTIAL", label: t.members.decisionReturnPartial },
+    { value: "RETURN_NONE", label: t.members.decisionReturnNone },
+    { value: "CARRY_FORWARD", label: t.members.decisionCarryForward },
+    { value: "CUSTOM", label: t.members.decisionCustom },
+  ];
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -37,6 +49,7 @@ export default async function MembersPage() {
             {t.members.subtitle}
           </p>
         </div>
+        <ExportButton hint={t.ledger.exportHint} label={t.ledger.export} report="members" />
       </div>
 
       <div className="mt-6 rounded-lg border border-[var(--line)] bg-white p-5">
@@ -74,7 +87,7 @@ export default async function MembersPage() {
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-[var(--line)] bg-white">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <caption className="sr-only">{t.members.title}</caption>
           <thead>
             <tr className="border-b border-[var(--line)] text-left text-[var(--muted)]">
@@ -91,7 +104,7 @@ export default async function MembersPage() {
                 {t.members.contributed}
               </th>
               <th className="px-4 py-3 font-medium" scope="col">
-                {t.common.status}
+                {t.members.login}
               </th>
               <th className="px-4 py-3 text-right font-medium" scope="col">
                 <span className="sr-only">{t.members.edit}</span>
@@ -101,10 +114,10 @@ export default async function MembersPage() {
           <tbody>
             {members.map((member) => (
               <MemberRow
-                editLabel={t.members.edit}
-                inactiveLabel={t.common.inactive}
                 key={member.id}
                 labels={{
+                  edit: t.members.edit,
+                  update: t.members.update,
                   name: t.members.name,
                   phone: t.members.phone,
                   shares: t.members.shareCount,
@@ -112,7 +125,20 @@ export default async function MembersPage() {
                   status: t.common.status,
                   active: t.common.active,
                   inactive: t.common.inactive,
-                  update: t.members.update,
+                  login: t.members.login,
+                  hasLogin: t.members.hasLogin,
+                  noLogin: t.members.noLogin,
+                  inviteLogin: t.members.inviteLogin,
+                  inviteHint: t.members.inviteHint,
+                  resetPassword: t.members.resetPassword,
+                  newPassword: t.members.newPassword,
+                  email: t.login.email,
+                  password: t.login.password,
+                  yearEndDecision: t.members.yearEndDecision,
+                  decision: t.members.decision,
+                  decisionNote: t.members.decisionNote,
+                  recordDecision: t.members.recordDecision,
+                  decisionOptions,
                 }}
                 member={{
                   id: member.id,
@@ -122,6 +148,8 @@ export default async function MembersPage() {
                   shareCount: member.shareCount,
                   monthlyHafta: member.monthlyHafta.toFixed(2),
                   status: member.status,
+                  hasLogin: member.userId !== null,
+                  decision: member.defaultDecision,
                   contributedLabel: formatPaise(
                     member.contributions.reduce(
                       (total, row) => total + decimalToPaise(row.amountPaid),

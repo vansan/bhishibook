@@ -1,6 +1,7 @@
 import { CalendarPlus, Lock, LockOpen } from "lucide-react";
 import Link from "next/link";
 import { ActionForm } from "@/components/ui/action-form";
+import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
 import {
   formatYearMonth,
@@ -88,6 +89,8 @@ export default async function ContributionsPage({ searchParams }: PageProps) {
             {t.contributions.subtitle}
           </p>
         </div>
+
+        <ExportButton hint={t.ledger.exportHint} label={t.ledger.export} report="contributions" />
 
         <div className="rounded-lg border border-[var(--line)] bg-white p-4">
           <ActionForm

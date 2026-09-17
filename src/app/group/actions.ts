@@ -12,8 +12,14 @@ import {
   waiveFine,
 } from "@/lib/services/contributions";
 import { createLoan, generateInterestDues, recordLoanRepayment } from "@/lib/services/loans";
-import { writeAudit } from "@/lib/services/ledger";
-import { addMember, updateMember } from "@/lib/services/members";
+import { reverseLedgerEntry, writeAudit } from "@/lib/services/ledger";
+import {
+  addMember,
+  inviteMemberLogin,
+  recordDefaultDecision,
+  resetMemberPassword,
+  updateMember,
+} from "@/lib/services/members";
 import { closeCycleWithDistribution } from "@/lib/services/distribution";
 import {
   createCycle,
@@ -471,6 +477,120 @@ export async function updateFineRuleAction(
     refresh();
     revalidatePath("/group/settings");
     return ok("Fine rule saved. Run the fine update to apply it to existing months.");
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function inviteMemberLoginAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const user = await inviteMemberLogin({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      memberId: text(formData, "memberId"),
+      email: text(formData, "email"),
+      password: String(formData.get("password") ?? ""),
+      preferredLang: text(formData, "preferredLang"),
+    });
+    refresh();
+    return ok(`${user.email} can now sign in at /login`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function resetMemberPasswordAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    await resetMemberPassword({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      memberId: text(formData, "memberId"),
+      password: String(formData.get("password") ?? ""),
+    });
+    refresh();
+    return ok("Password changed");
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+const DECISIONS = [
+  "PENDING",
+  "RETURN_FULL",
+  "RETURN_PARTIAL",
+  "RETURN_NONE",
+  "CARRY_FORWARD",
+  "CUSTOM",
+] as const;
+
+export async function recordDefaultDecisionAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const decision = text(formData, "decision") as (typeof DECISIONS)[number];
+    if (!DECISIONS.includes(decision)) return { error: "Choose a decision" };
+
+    await recordDefaultDecision({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      memberId: text(formData, "memberId"),
+      decision,
+      note: text(formData, "note") || undefined,
+    });
+    refresh();
+    return ok("Decision recorded");
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/**
+ * Undo a ledger posting.
+ *
+ * The entry is not deleted; a REVERSAL is posted against it, which is the rule
+ * the group agreed on for correcting mistakes.
+ */
+export async function reverseLedgerEntryAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const entryId = text(formData, "entryId");
+    const reason = text(formData, "reason");
+    if (!reason) return { error: "Give a reason for the reversal" };
+
+    await prisma.$transaction(async (tx) => {
+      // Scoped by groupId so one group cannot reverse another group's entry.
+      const entry = await tx.ledgerEntry.findFirst({
+        where: { id: entryId, groupId: scope.groupId },
+        select: { id: true },
+      });
+      if (!entry) throw new Error("That ledger entry could not be found in this group");
+
+      await reverseLedgerEntry(tx, entry.id, reason);
+      await writeAudit(tx, {
+        groupId: scope.groupId,
+        actorUserId: scope.userId,
+        action: "REVERSE_LEDGER_ENTRY",
+        entityType: "LedgerEntry",
+        entityId: entry.id,
+        newValue: { reason },
+      });
+    });
+
+    refresh();
+    return ok("Reversal posted");
   } catch (error) {
     return failure(error);
   }

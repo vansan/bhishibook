@@ -1,5 +1,6 @@
 import { CircleDollarSign, TrendingUp } from "lucide-react";
 import { ActionForm, Field, SelectField } from "@/components/ui/action-form";
+import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
 import { getMessages } from "@/lib/i18n";
 import { atLeastZero, decimalToPaise, formatPaise, sumPaise } from "@/lib/money";
@@ -81,6 +82,8 @@ export default async function LoansPage() {
             {t.loans.subtitle}
           </p>
         </div>
+
+        <ExportButton hint={t.ledger.exportHint} label={t.ledger.export} report="loans" />
 
         <div className="rounded-lg border border-[var(--line)] bg-white p-4">
           <ActionForm

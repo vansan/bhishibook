@@ -2,6 +2,7 @@ import "server-only";
 import type { MembershipStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { paiseToDecimalString, type Paise } from "@/lib/money";
+import { hashPassword, MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { writeAudit } from "./ledger";
 
 /**
@@ -130,8 +131,16 @@ export async function recordDefaultDecision(input: {
   actorUserId?: string | null;
 }) {
   return prisma.$transaction(async (tx) => {
+    // Scoped by groupId as well as id: updating by id alone would let one
+    // group write a decision onto another group's member.
+    const owned = await tx.groupMember.findFirst({
+      where: { id: input.memberId, groupId: input.groupId },
+      select: { id: true },
+    });
+    if (!owned) throw new Error("That member could not be found in this group");
+
     const member = await tx.groupMember.update({
-      where: { id: input.memberId },
+      where: { id: owned.id },
       data: {
         defaultDecision: input.decision,
         defaultDecidedAt: input.decision === "PENDING" ? null : new Date(),
@@ -146,6 +155,110 @@ export async function recordDefaultDecision(input: {
       entityType: "GroupMember",
       entityId: member.id,
       newValue: { decision: input.decision, note: input.note ?? null },
+    });
+
+    return member;
+  });
+}
+
+/**
+ * Give a member their own login.
+ *
+ * The admin sets a starting password and passes it on however they normally
+ * reach that member. There is no email delivery yet, which is deliberate: a
+ * free group should not need an SMTP account to get started.
+ */
+export async function inviteMemberLogin(input: {
+  groupId: string;
+  memberId: string;
+  email: string;
+  password: string;
+  preferredLang?: string;
+  actorUserId?: string | null;
+}) {
+  const email = input.email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new Error("Enter a valid email address");
+  }
+  if (input.password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+
+  const member = await prisma.groupMember.findFirst({
+    where: { id: input.memberId, groupId: input.groupId },
+    select: { id: true, displayName: true, userId: true },
+  });
+  if (!member) throw new Error("That member could not be found in this group");
+  if (member.userId) throw new Error(`${member.displayName} already has a login`);
+
+  const taken = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (taken) throw new Error("A user with that email already exists");
+
+  // Hashing is slow, so it happens before the transaction opens.
+  const passwordHash = await hashPassword(input.password);
+
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        email,
+        name: member.displayName,
+        role: "MEMBER",
+        preferredLang: input.preferredLang === "mr" ? "mr" : "en",
+        passwordHash,
+      },
+    });
+
+    await tx.groupMember.update({
+      where: { id: member.id },
+      data: { userId: user.id, email },
+    });
+
+    await writeAudit(tx, {
+      groupId: input.groupId,
+      actorUserId: input.actorUserId,
+      action: "INVITE_MEMBER_LOGIN",
+      entityType: "GroupMember",
+      entityId: member.id,
+      newValue: { email, userId: user.id },
+    });
+
+    return user;
+  });
+}
+
+/** Set a new password for a member who has forgotten theirs. */
+export async function resetMemberPassword(input: {
+  groupId: string;
+  memberId: string;
+  password: string;
+  actorUserId?: string | null;
+}) {
+  if (input.password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  }
+
+  const member = await prisma.groupMember.findFirst({
+    where: { id: input.memberId, groupId: input.groupId },
+    select: { id: true, userId: true, displayName: true },
+  });
+  if (!member?.userId) throw new Error("That member does not have a login yet");
+
+  const passwordHash = await hashPassword(input.password);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: member.userId! },
+      data: { passwordHash },
+    });
+
+    await writeAudit(tx, {
+      groupId: input.groupId,
+      actorUserId: input.actorUserId,
+      action: "RESET_MEMBER_PASSWORD",
+      entityType: "GroupMember",
+      entityId: member.id,
+      // Never record the password itself, only that it was changed.
+      newValue: { memberId: member.id },
     });
 
     return member;

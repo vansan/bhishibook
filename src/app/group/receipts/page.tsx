@@ -1,3 +1,4 @@
+import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
 import { getMessages } from "@/lib/i18n";
 import { decimalToPaise, formatPaise } from "@/lib/money";
@@ -28,10 +29,15 @@ export default async function ReceiptsPage() {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold sm:text-3xl">{t.receipts.title}</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-        {t.receipts.subtitle}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t.receipts.title}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            {t.receipts.subtitle}
+          </p>
+        </div>
+        <ExportButton hint={t.ledger.exportHint} label={t.ledger.export} report="receipts" />
+      </div>
 
       {receipts.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-center text-sm text-[var(--muted)]">
@@ -78,6 +84,8 @@ export default async function ReceiptsPage() {
                   <td className="px-4 py-3 text-right">
                     <ReceiptActions
                       copiedLabel={t.receipts.copied}
+                      pdfLabel={t.ledger.downloadPdf}
+                      receiptId={receipt.id}
                       copyLabel={t.receipts.copy}
                       shareLabel={t.receipts.shareWhatsapp}
                       shareUrl={whatsappShareUrl(

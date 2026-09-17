@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Share2 } from "lucide-react";
+import { Check, Copy, FileDown, Share2 } from "lucide-react";
 
 type ReceiptActionsProps = {
+  receiptId: string;
+  pdfLabel: string;
   text: string;
   shareUrl: string;
   shareLabel: string;
@@ -12,6 +14,8 @@ type ReceiptActionsProps = {
 };
 
 export function ReceiptActions({
+  receiptId,
+  pdfLabel,
   text,
   shareUrl,
   shareLabel,
@@ -42,6 +46,15 @@ export function ReceiptActions({
         {copied ? <Check size={14} /> : <Copy size={14} />}
         <span className="hidden sm:inline">{copied ? copiedLabel : copyLabel}</span>
       </button>
+
+      <a
+        className="focus-ring inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)]"
+        download
+        href={`/api/receipts/${receiptId}/pdf`}
+      >
+        <FileDown size={14} />
+        <span className="hidden sm:inline">{pdfLabel}</span>
+      </a>
 
       <a
         className="focus-ring inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm font-medium text-[var(--primary)] hover:underline"

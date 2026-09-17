@@ -1,8 +1,9 @@
+import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
 import { getMessages } from "@/lib/i18n";
 import { decimalToPaise, formatPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
-import { cn } from "@/lib/utils";
+import { LedgerRow } from "./ledger-row";
 
 /**
  * Money flowing IN to the corpus is shown positive; money flowing OUT is shown
@@ -38,6 +39,7 @@ export default async function LedgerPage() {
       entryDate: true,
       description: true,
       reversalOfId: true,
+      reversals: { select: { id: true }, take: 1 },
     },
   });
 
@@ -45,10 +47,15 @@ export default async function LedgerPage() {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold sm:text-3xl">{t.ledger.title}</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-        {t.ledger.subtitle}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t.ledger.title}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            {t.ledger.subtitle}
+          </p>
+        </div>
+        <ExportButton hint={t.ledger.exportHint} label={t.ledger.export} report="ledger" />
+      </div>
 
       {entries.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-center text-sm text-[var(--muted)]">
@@ -56,7 +63,7 @@ export default async function LedgerPage() {
         </p>
       ) : (
         <div className="mt-6 overflow-x-auto rounded-lg border border-[var(--line)] bg-white">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <caption className="sr-only">{t.ledger.title}</caption>
             <thead>
               <tr className="border-b border-[var(--line)] text-left text-[var(--muted)]">
@@ -72,39 +79,33 @@ export default async function LedgerPage() {
                 <th className="px-4 py-3 text-right font-medium" scope="col">
                   {t.common.amount}
                 </th>
+                <th className="px-4 py-3 text-right font-medium" scope="col">
+                  <span className="sr-only">{t.ledger.reverse}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => {
-                const isOutflow = OUTFLOWS.has(entry.entryType);
-                const isReversal = Boolean(entry.reversalOfId);
-                const paise = decimalToPaise(entry.amount);
-
-                return (
-                  <tr className="border-b border-[var(--line)] last:border-0" key={entry.id}>
-                    <td className="px-4 py-3 text-[var(--muted)]">
-                      {entry.entryDate.toISOString().slice(0, 10)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {TYPE_LABELS[entry.entryType] ?? entry.entryType}
-                    </td>
-                    <td className="px-4 py-3">{entry.description}</td>
-                    <td
-                      className={cn(
-                        "px-4 py-3 text-right font-medium tabular-nums",
-                        isReversal
-                          ? "text-[var(--muted)] line-through"
-                          : isOutflow
-                            ? "text-[var(--warn)]"
-                            : "text-[var(--primary)]"
-                      )}
-                    >
-                      {isOutflow ? "-" : "+"}
-                      {formatPaise(paise, whole)}
-                    </td>
-                  </tr>
-                );
-              })}
+              {entries.map((entry) => (
+                <LedgerRow
+                  entry={{
+                    id: entry.id,
+                    date: entry.entryDate.toISOString().slice(0, 10),
+                    typeLabel: TYPE_LABELS[entry.entryType] ?? entry.entryType,
+                    description: entry.description,
+                    amountLabel: formatPaise(decimalToPaise(entry.amount), whole),
+                    isOutflow: OUTFLOWS.has(entry.entryType),
+                    isReversal: Boolean(entry.reversalOfId),
+                    isReversed: entry.reversals.length > 0,
+                  }}
+                  key={entry.id}
+                  labels={{
+                    reverse: t.ledger.reverse,
+                    reverseReason: t.ledger.reverseReason,
+                    reverseHint: t.ledger.reverseHint,
+                    reversed: t.ledger.reversed,
+                  }}
+                />
+              ))}
             </tbody>
           </table>
         </div>

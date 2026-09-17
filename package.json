@@ -12,7 +12,9 @@
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",

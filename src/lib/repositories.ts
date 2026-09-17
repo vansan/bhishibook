@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { decimalToPaise, sumPaise, type Paise } from "@/lib/money";
-import { maxLoanFor, yearMonthOf } from "@/lib/finance";
+import { formatYearMonth, maxLoanFor, yearMonthKey, yearMonthOf } from "@/lib/finance";
 
 /**
  * Read models for the dashboards.
@@ -296,5 +296,133 @@ export async function getMemberSummary(
     borrowingHeadroomPaise: Math.max(maxLoanPaise - outstandingPrincipalPaise, 0),
     activeLoanCount: loans.filter((loan) => loan.status === "ACTIVE").length,
     receiptCount,
+  };
+}
+
+export type PassbookMonth = {
+  key: string;
+  label: string;
+  haftaDuePaise: Paise;
+  haftaPaidPaise: Paise;
+  interestDuePaise: Paise;
+  interestPaidPaise: Paise;
+  finePaise: Paise;
+  fineOutstandingPaise: Paise;
+  settled: boolean;
+};
+
+export type PassbookReceipt = {
+  id: string;
+  receiptNo: string;
+  receiptType: string;
+  issuedOn: string;
+  amountPaise: Paise;
+  whatsappText: string | null;
+};
+
+/**
+ * The member's own month-by-month history plus their receipts.
+ * Scoped by groupId and memberId together, same as getMemberSummary.
+ */
+export async function getMemberPassbook(
+  groupId: string,
+  memberId: string
+): Promise<{ months: PassbookMonth[]; receipts: PassbookReceipt[] }> {
+  const member = await prisma.groupMember.findFirst({
+    where: { id: memberId, groupId },
+    select: { id: true },
+  });
+  if (!member) return { months: [], receipts: [] };
+
+  const [contributions, interestDues, fines, receipts] = await Promise.all([
+    prisma.contribution.findMany({
+      where: { memberId },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+      select: { year: true, month: true, amountDue: true, amountPaid: true },
+    }),
+    prisma.interestDue.findMany({
+      where: { memberId },
+      select: { year: true, month: true, amountDue: true, amountPaid: true },
+    }),
+    prisma.fine.findMany({
+      where: { memberId },
+      select: { year: true, month: true, amount: true, amountPaid: true, waivedAmount: true },
+    }),
+    prisma.receipt.findMany({
+      where: { memberId },
+      orderBy: { issuedAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        receiptNo: true,
+        receiptType: true,
+        issuedAt: true,
+        amount: true,
+        whatsappText: true,
+      },
+    }),
+  ]);
+
+  const byMonth = new Map<string, PassbookMonth>();
+  const slot = (year: number, month: number): PassbookMonth => {
+    const key = yearMonthKey({ year, month });
+    const existing = byMonth.get(key);
+    if (existing) return existing;
+    const fresh: PassbookMonth = {
+      key,
+      label: formatYearMonth({ year, month }),
+      haftaDuePaise: 0,
+      haftaPaidPaise: 0,
+      interestDuePaise: 0,
+      interestPaidPaise: 0,
+      finePaise: 0,
+      fineOutstandingPaise: 0,
+      settled: false,
+    };
+    byMonth.set(key, fresh);
+    return fresh;
+  };
+
+  for (const row of contributions) {
+    const entry = slot(row.year, row.month);
+    entry.haftaDuePaise += decimalToPaise(row.amountDue);
+    entry.haftaPaidPaise += decimalToPaise(row.amountPaid);
+  }
+  for (const row of interestDues) {
+    const entry = slot(row.year, row.month);
+    entry.interestDuePaise += decimalToPaise(row.amountDue);
+    entry.interestPaidPaise += decimalToPaise(row.amountPaid);
+  }
+  for (const row of fines) {
+    const entry = slot(row.year, row.month);
+    entry.finePaise += decimalToPaise(row.amount);
+    entry.fineOutstandingPaise += Math.max(
+      decimalToPaise(row.amount) -
+        decimalToPaise(row.amountPaid) -
+        decimalToPaise(row.waivedAmount),
+      0
+    );
+  }
+
+  const months = [...byMonth.values()]
+    .map((entry) => ({
+      ...entry,
+      settled:
+        entry.haftaPaidPaise >= entry.haftaDuePaise &&
+        entry.interestPaidPaise >= entry.interestDuePaise &&
+        entry.fineOutstandingPaise === 0,
+    }))
+    .sort((a, b) => b.key.localeCompare(a.key));
+
+  return {
+    months,
+    receipts: receipts.map((receipt) => ({
+      id: receipt.id,
+      receiptNo: receipt.receiptNo,
+      receiptType: receipt.receiptType,
+      issuedOn: receipt.issuedAt.toISOString().slice(0, 10),
+      amountPaise: decimalToPaise(receipt.amount),
+      whatsappText: receipt.whatsappText,
+    })),
   };
 }

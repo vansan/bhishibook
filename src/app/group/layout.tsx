@@ -29,6 +29,8 @@ export default async function GroupLayout({ children }: { children: React.ReactN
           { href: "/group/loans", label: t.tabs.loans },
           { href: "/group/fines", label: t.tabs.fines },
           { href: "/group/ledger", label: t.tabs.ledger },
+          { href: "/group/receipts", label: t.tabs.receipts },
+          { href: "/group/distribution", label: t.tabs.distribution },
         ]}
       />
       {children}

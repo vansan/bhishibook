@@ -13,6 +13,7 @@ import {
 import { createLoan, generateInterestDues, recordLoanRepayment } from "@/lib/services/loans";
 import { writeAudit } from "@/lib/services/ledger";
 import { addMember, updateMember } from "@/lib/services/members";
+import { closeCycleWithDistribution } from "@/lib/services/distribution";
 
 /**
  * Server Actions for the group admin area.
@@ -334,6 +335,34 @@ export async function lockPeriodAction(
 
     refresh();
     return ok(`${month}/${year} locked`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function closeCycleAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const cycleId = text(formData, "cycleId") || (await activeCycleId(scope.groupId));
+
+    // Closing a cycle pays everyone out and cannot be undone, so the admin has
+    // to type the confirmation rather than hit a button by accident.
+    if (text(formData, "confirm").toUpperCase() !== "CLOSE") {
+      return { error: 'Type CLOSE in the box to confirm' };
+    }
+
+    const result = await closeCycleWithDistribution({
+      groupId: scope.groupId,
+      cycleId,
+      actorUserId: scope.userId,
+    });
+
+    refresh();
+    revalidatePath("/group/distribution");
+    return ok(`Cycle closed. ${result.members} members settled.`);
   } catch (error) {
     return failure(error);
   }

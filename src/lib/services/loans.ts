@@ -9,6 +9,7 @@ import {
 import {
   atLeastZero,
   decimalToPaise,
+  formatPaise,
   paiseToDecimalString,
   sumPaise,
   type Paise,
@@ -456,7 +457,9 @@ export async function recordLoanRepayment(input: {
 
     if (allocation.unappliedPaise > 0) {
       throw new Error(
-        `This loan only owes ${(owedFine + owedInterest + owedPrincipal) / 100}. Reduce the amount.`
+        `This loan only owes ${formatPaise(owedFine + owedInterest + owedPrincipal, {
+          whole: true,
+        })}. Reduce the amount.`
       );
     }
 
@@ -575,7 +578,9 @@ export async function recordLoanRepayment(input: {
       issuedAt: input.paidOn,
       lines: postings.map((p) => ({ label: p.label, amountPaise: p.amount })),
       totalPaise: input.amountPaise,
-      footer: `Principal still due: ${atLeastZero(principalNowOwed) / 100}\nPowered by BhishiBook`,
+      footer: `Principal still due: ${formatPaise(atLeastZero(principalNowOwed), {
+        whole: true,
+      })}\nPowered by BhishiBook`,
     });
 
     await tx.receipt.update({ where: { id: receipt.id }, data: { whatsappText } });

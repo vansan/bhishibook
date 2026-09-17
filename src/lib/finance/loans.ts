@@ -41,6 +41,11 @@ export function maxLoanFor(corpusContributedPaise: Paise, multiple: string | num
   return atLeastZero(Math.floor((corpusContributedPaise * scaled) / 10_000));
 }
 
+/** Plain rupee text for messages people read. Display formatting lives in money.ts. */
+function formatRupees(paise: Paise): string {
+  return `Rs ${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
 export type LoanEligibility = {
   maxLoanPaise: Paise;
   alreadyBorrowedPaise: Paise;
@@ -72,9 +77,9 @@ export function checkLoanEligibility(input: {
     return {
       ...base,
       allowed: false,
-      reason: `Limit is ${input.multiple}x of corpus contributed; only ${
-        availablePaise / 100
-      } is left`,
+      reason: `Limit is ${input.multiple}x of corpus contributed; only ${formatRupees(
+        availablePaise
+      )} is left`,
     };
   }
   if (input.requestedPaise > input.groupAvailableFundsPaise) {

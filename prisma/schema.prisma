@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  GROUP_ADMIN
+  MEMBER
+}
+
+enum GroupStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum PlanStatus {
+  FREE
+  TRIAL
+  PAID
+  SUSPENDED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  DEFAULTED
+}
+
+enum CycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSING
+  CLOSED
+}
+
+enum LedgerEntryType {
+  CONTRIBUTION
+  LOAN_DISBURSEMENT
+  PRINCIPAL_REPAYMENT
+  INTEREST_PAYMENT
+  CONTRIBUTION_FINE
+  INTEREST_FINE
+  CORRECTION
+  REVERSAL
+  DISTRIBUTION
+}
+
+enum ReceiptType {
+  CONTRIBUTION
+  LOAN
+  REPAYMENT
+  INTEREST
+  FINE
+  DISTRIBUTION
+}
+
+enum DistributionBase {
+  INTEREST_ONLY
+  CORPUS_PLUS_INTEREST
+}
+
+model User {
+  id            String           @id @default(uuid()) @db.Uuid
+  email         String           @unique
+  name          String
+  preferredLang String           @default("en")
+  role          UserRole         @default(MEMBER)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  memberships   GroupMember[]
+  auditLogs     AuditLog[]
+}
+
+model Group {
+  id               String          @id @default(uuid()) @db.Uuid
+  name             String
+  platformName     String          @default("BhishiBook")
+  status           GroupStatus     @default(ACTIVE)
+  planStatus       PlanStatus      @default(FREE)
+  defaultLang      String          @default("en")
+  currency         String          @default("INR")
+  poweredByEnabled Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  members          GroupMember[]
+  cycles           Cycle[]
+  receipts         Receipt[]
+  ledgerEntries    LedgerEntry[]
+  auditLogs        AuditLog[]
+  fineRules        FineRule[]
+}
+
+model GroupMember {
+  id            String           @id @default(uuid()) @db.Uuid
+  groupId       String           @db.Uuid
+  userId        String?          @db.Uuid
+  displayName   String
+  phone         String?
+  email         String?
+  shareCount    Int              @default(1)
+  monthlyHafta  Decimal          @db.Decimal(12, 2)
+  status        MembershipStatus @default(ACTIVE)
+  joinedAt      DateTime         @default(now())
+  group         Group            @relation(fields: [groupId], references: [id])
+  user          User?            @relation(fields: [userId], references: [id])
+  contributions Contribution[]
+  loans         Loan[]
+  repayments    LoanRepayment[]
+  fines         Fine[]
+  receipts      Receipt[]
+
+  @@index([groupId])
+  @@index([userId])
+}
+
+model Cycle {
+  id                   String             @id @default(uuid()) @db.Uuid
+  groupId              String             @db.Uuid
+  name                 String
+  startsOn             DateTime
+  endsOn               DateTime
+  status               CycleStatus        @default(DRAFT)
+  contributionDueDay   Int                @default(10)
+  monthlyInterestRate  Decimal            @default(3.00) @db.Decimal(5, 2)
+  maxRepaymentMonths   Int                @default(6)
+  maxLoanCorpusMultiple Decimal           @default(2.00) @db.Decimal(5, 2)
+  distributionBase     DistributionBase   @default(INTEREST_ONLY)
+  distributeFines      Boolean            @default(true)
+  group                Group              @relation(fields: [groupId], references: [id])
+  contributions        Contribution[]
+  loans                Loan[]
+  fines                Fine[]
+  ledgerEntries        LedgerEntry[]
+  receipts             Receipt[]
+
+  @@index([groupId])
+}
+
+model Contribution {
+  id          String      @id @default(uuid()) @db.Uuid
+  cycleId     String      @db.Uuid
+  memberId    String      @db.Uuid
+  month       Int
+  year        Int
+  amountDue   Decimal     @db.Decimal(12, 2)
+  amountPaid  Decimal     @default(0) @db.Decimal(12, 2)
+  paidOn      DateTime?
+  notes       String?
+  cycle       Cycle       @relation(fields: [cycleId], references: [id])
+  member      GroupMember @relation(fields: [memberId], references: [id])
+  fines       Fine[]
+  receipts    Receipt[]
+
+  @@unique([cycleId, memberId, month, year])
+  @@index([memberId])
+}
+
+model Loan {
+  id              String          @id @default(uuid()) @db.Uuid
+  cycleId         String          @db.Uuid
+  memberId        String          @db.Uuid
+  principal       Decimal         @db.Decimal(12, 2)
+  disbursedOn     DateTime
+  dueOn           DateTime
+  interestRate    Decimal         @db.Decimal(5, 2)
+  principalClosed Boolean         @default(false)
+  notes           String?
+  cycle           Cycle           @relation(fields: [cycleId], references: [id])
+  member          GroupMember     @relation(fields: [memberId], references: [id])
+  repayments      LoanRepayment[]
+  fines           Fine[]
+  receipts        Receipt[]
+
+  @@index([cycleId])
+  @@index([memberId])
+}
+
+model LoanRepayment {
+  id              String      @id @default(uuid()) @db.Uuid
+  loanId          String      @db.Uuid
+  memberId        String      @db.Uuid
+  paidOn          DateTime
+  principalAmount Decimal     @default(0) @db.Decimal(12, 2)
+  interestAmount  Decimal     @default(0) @db.Decimal(12, 2)
+  notes           String?
+  loan            Loan        @relation(fields: [loanId], references: [id])
+  member          GroupMember @relation(fields: [memberId], references: [id])
+  fines           Fine[]
+  receipts        Receipt[]
+
+  @@index([loanId])
+  @@index([memberId])
+}
+
+model FineRule {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @db.Uuid
+  name            String
+  appliesTo       String
+  fixedPerDay     Decimal  @db.Decimal(12, 2)
+  graceDays       Int      @default(10)
+  distributeFine  Boolean  @default(true)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  group           Group    @relation(fields: [groupId], references: [id])
+
+  @@index([groupId])
+}
+
+model Fine {
+  id             String          @id @default(uuid()) @db.Uuid
+  cycleId        String          @db.Uuid
+  memberId       String          @db.Uuid
+  contributionId String?         @db.Uuid
+  loanId         String?         @db.Uuid
+  repaymentId    String?         @db.Uuid
+  fineType       String
+  daysLate       Int
+  amount         Decimal         @db.Decimal(12, 2)
+  waivedAmount   Decimal         @default(0) @db.Decimal(12, 2)
+  notes          String?
+  cycle          Cycle           @relation(fields: [cycleId], references: [id])
+  member         GroupMember     @relation(fields: [memberId], references: [id])
+  contribution   Contribution?   @relation(fields: [contributionId], references: [id])
+  loan           Loan?           @relation(fields: [loanId], references: [id])
+  repayment      LoanRepayment?  @relation(fields: [repaymentId], references: [id])
+  receipts       Receipt[]
+
+  @@index([cycleId])
+  @@index([memberId])
+}
+
+model LedgerEntry {
+  id              String          @id @default(uuid()) @db.Uuid
+  groupId         String          @db.Uuid
+  cycleId         String?         @db.Uuid
+  entryType       LedgerEntryType
+  amount          Decimal         @db.Decimal(12, 2)
+  entryDate       DateTime
+  description     String
+  referenceType   String?
+  referenceId     String?         @db.Uuid
+  reversalOfId    String?         @db.Uuid
+  createdAt       DateTime        @default(now())
+  group           Group           @relation(fields: [groupId], references: [id])
+  cycle           Cycle?          @relation(fields: [cycleId], references: [id])
+  reversalOf      LedgerEntry?    @relation("LedgerReversal", fields: [reversalOfId], references: [id])
+  reversals       LedgerEntry[]   @relation("LedgerReversal")
+
+  @@index([groupId])
+  @@index([cycleId])
+  @@index([referenceId])
+}
+
+model Receipt {
+  id             String          @id @default(uuid()) @db.Uuid
+  groupId        String          @db.Uuid
+  cycleId        String?         @db.Uuid
+  memberId       String?         @db.Uuid
+  contributionId String?         @db.Uuid
+  loanId         String?         @db.Uuid
+  repaymentId    String?         @db.Uuid
+  fineId         String?         @db.Uuid
+  receiptNo      String
+  receiptType    ReceiptType
+  amount         Decimal         @db.Decimal(12, 2)
+  issuedAt       DateTime        @default(now())
+  whatsappText   String?
+  pdfUrl         String?
+  group          Group           @relation(fields: [groupId], references: [id])
+  cycle          Cycle?          @relation(fields: [cycleId], references: [id])
+  member         GroupMember?    @relation(fields: [memberId], references: [id])
+  contribution   Contribution?   @relation(fields: [contributionId], references: [id])
+  loan           Loan?           @relation(fields: [loanId], references: [id])
+  repayment      LoanRepayment?  @relation(fields: [repaymentId], references: [id])
+  fine           Fine?           @relation(fields: [fineId], references: [id])
+
+  @@unique([groupId, receiptNo])
+  @@index([memberId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  groupId     String?  @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String
+  entityType  String
+  entityId    String?  @db.Uuid
+  oldValue    Json?
+  newValue    Json?
+  createdAt   DateTime @default(now())
+  group       Group?   @relation(fields: [groupId], references: [id])
+  actor       User?    @relation(fields: [actorUserId], references: [id])
+
+  @@index([groupId])
+  @@index([actorUserId])
+}

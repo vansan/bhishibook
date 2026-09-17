@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -72,9 +73,13 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
   };
 });
 
-export async function requireAuth(): Promise<AuthContext> {
+/** A group is a tenant, so each audience has its own sign-in page. */
+export const TENANT_LOGIN_PATH = "/login";
+export const PLATFORM_LOGIN_PATH = "/superadmin/login";
+
+export async function requireAuth(loginPath = TENANT_LOGIN_PATH): Promise<AuthContext> {
   const auth = await getAuth();
-  if (!auth) redirect("/login");
+  if (!auth) redirect(loginPath);
   return auth;
 }
 
@@ -85,7 +90,10 @@ export async function requireRole(...roles: UserRole[]): Promise<AuthContext> {
 }
 
 export async function requireSuperAdmin(): Promise<AuthContext> {
-  return requireRole("SUPER_ADMIN");
+  // Bounce to the platform door, not the tenant one.
+  const auth = await requireAuth(PLATFORM_LOGIN_PATH);
+  if (auth.role !== "SUPER_ADMIN") redirect("/denied");
+  return auth;
 }
 
 export type GroupScope = AuthContext & { groupId: string };
@@ -101,7 +109,10 @@ export async function requireGroupScope(requestedGroupId?: string): Promise<Grou
   const auth = await requireAuth();
 
   if (auth.role === "SUPER_ADMIN") {
-    const groupId = requestedGroupId ?? (await firstGroupId());
+    // A superadmin is not tied to one group, so they carry their current
+    // selection in a cookie set from the superadmin group list. Without it,
+    // "the oldest group" is picked, which is wrong as soon as there are two.
+    const groupId = requestedGroupId ?? (await selectedGroupId()) ?? (await firstGroupId());
     if (!groupId) redirect("/superadmin");
     return { ...auth, groupId };
   }
@@ -144,6 +155,25 @@ export async function requireMemberScope(
   if (!member) redirect("/denied");
 
   return { ...scope, memberId };
+}
+
+export const SELECTED_GROUP_COOKIE = "bb_group";
+
+/**
+ * The group a superadmin is currently working inside.
+ * Verified against the database, so a hand-edited cookie cannot point at a
+ * group that does not exist.
+ */
+async function selectedGroupId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const candidate = cookieStore.get(SELECTED_GROUP_COOKIE)?.value;
+  if (!candidate) return null;
+
+  const group = await prisma.group.findUnique({
+    where: { id: candidate },
+    select: { id: true },
+  });
+  return group?.id ?? null;
 }
 
 async function firstGroupId(): Promise<string | null> {

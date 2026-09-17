@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ActionState } from "@/app/group/actions";
+import type { ActionState } from "@/lib/action-state";
 
 type ActionFormProps = {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;

@@ -2,9 +2,11 @@
 
 import { useActionState } from "react";
 import { AlertCircle, LogIn } from "lucide-react";
-import { login, type LoginState } from "./actions";
+import type { LoginState } from "./actions";
 
 type LoginFormProps = {
+  /** loginTenant or loginPlatform, chosen by the page that renders this. */
+  signIn: (prev: LoginState, formData: FormData) => Promise<LoginState>;
   next?: string;
   labels: {
     email: string;
@@ -16,8 +18,8 @@ type LoginFormProps = {
 
 const INITIAL: LoginState = {};
 
-export function LoginForm({ next, labels }: LoginFormProps) {
-  const [state, action, pending] = useActionState(login, INITIAL);
+export function LoginForm({ signIn, next, labels }: LoginFormProps) {
+  const [state, action, pending] = useActionState(signIn, INITIAL);
 
   return (
     <form action={action} className="space-y-4">

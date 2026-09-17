@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { ActionState } from "@/lib/action-state";
 import { requireGroupAdmin } from "@/lib/auth";
 import { rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -14,6 +15,12 @@ import { createLoan, generateInterestDues, recordLoanRepayment } from "@/lib/ser
 import { writeAudit } from "@/lib/services/ledger";
 import { addMember, updateMember } from "@/lib/services/members";
 import { closeCycleWithDistribution } from "@/lib/services/distribution";
+import {
+  createCycle,
+  updateCycle,
+  updateFineRule,
+  updateGroupSettings,
+} from "@/lib/services/groups";
 
 /**
  * Server Actions for the group admin area.
@@ -24,7 +31,7 @@ import { closeCycleWithDistribution } from "@/lib/services/distribution";
  * group's money. The groupId always comes from the session, never the form.
  */
 
-export type ActionState = { error?: string; success?: string };
+export type { ActionState } from "@/lib/action-state";
 
 const ok = (message: string): ActionState => ({ success: message });
 
@@ -363,6 +370,107 @@ export async function closeCycleAction(
     refresh();
     revalidatePath("/group/distribution");
     return ok(`Cycle closed. ${result.members} members settled.`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function cycleFromForm(formData: FormData) {
+  return {
+    name: text(formData, "name"),
+    startsOn: date(formData, "startsOn"),
+    endsOn: date(formData, "endsOn"),
+    contributionDueDay: Number(text(formData, "contributionDueDay") || "10"),
+    monthlyInterestRate: text(formData, "monthlyInterestRate") || "3",
+    maxRepaymentMonths: Number(text(formData, "maxRepaymentMonths") || "6"),
+    maxLoanCorpusMultiple: text(formData, "maxLoanCorpusMultiple") || "2",
+    distributionBase:
+      text(formData, "distributionBase") === "CORPUS_PLUS_INTEREST"
+        ? ("CORPUS_PLUS_INTEREST" as const)
+        : ("INTEREST_ONLY" as const),
+    distributeFines: text(formData, "distributeFines") === "yes",
+  };
+}
+
+export async function createCycleAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const cycle = await createCycle({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      ...cycleFromForm(formData),
+    });
+    refresh();
+    revalidatePath("/group/settings");
+    return ok(`${cycle.name} started`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateCycleAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const cycle = await updateCycle({
+      groupId: scope.groupId,
+      cycleId: text(formData, "cycleId"),
+      actorUserId: scope.userId,
+      ...cycleFromForm(formData),
+    });
+    refresh();
+    revalidatePath("/group/settings");
+    return ok(`${cycle.name} updated`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateGroupSettingsAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const group = await updateGroupSettings({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      name: text(formData, "name"),
+      defaultLang: text(formData, "defaultLang"),
+      poweredByEnabled: text(formData, "poweredByEnabled") !== "no",
+    });
+    refresh();
+    revalidatePath("/group/settings");
+    return ok(`${group.name} saved`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateFineRuleAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    await updateFineRule({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      fineRuleId: text(formData, "fineRuleId"),
+      fixedPerDayPaise: money(formData, "fixedPerDay"),
+      graceDays: Number(text(formData, "graceDays") || "0"),
+      maxFineDays: Number(text(formData, "maxFineDays") || "0"),
+      distributeFine: text(formData, "distributeFine") === "yes",
+      active: text(formData, "active") !== "no",
+    });
+    refresh();
+    revalidatePath("/group/settings");
+    return ok("Fine rule saved. Run the fine update to apply it to existing months.");
   } catch (error) {
     return failure(error);
   }

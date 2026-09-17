@@ -1,6 +1,8 @@
-import { KeyRound } from "lucide-react";
+import { KeyRound, Shield } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { getMessages } from "@/lib/i18n";
+import { loginTenant } from "./actions";
 import { LoginForm } from "./login-form";
 
 // searchParams is a Promise in this version of Next.js.
@@ -8,6 +10,7 @@ type LoginPageProps = {
   searchParams: Promise<{ next?: string }>;
 };
 
+/** The tenant front door: group admins and members of a group. */
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const t = await getMessages();
   const { next } = await searchParams;
@@ -31,20 +34,28 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 submitting: t.login.submitting,
               }}
               next={next}
+              signIn={loginTenant}
             />
           </div>
         </div>
+
+        <Link
+          className="focus-ring mt-4 flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)]"
+          href="/superadmin/login"
+        >
+          <Shield size={15} />
+          {t.login.platformLink}
+        </Link>
 
         {process.env.NODE_ENV !== "production" ? (
           <div className="mt-4 rounded-lg border border-dashed border-[var(--line)] bg-white/60 p-4 text-sm text-[var(--muted)]">
             <p className="font-semibold text-[var(--foreground)]">Demo logins</p>
             <ul className="mt-2 space-y-1">
-              <li>superadmin@bhishibook.local</li>
-              <li>admin@maitrinidhi.local</li>
-              <li>amit.patil@maitrinidhi.local</li>
+              <li>admin@maitrinidhi.local — group admin</li>
+              <li>amit.patil@maitrinidhi.local — member</li>
             </ul>
             <p className="mt-2">
-              Password for all three: <code className="font-semibold">bhishi1234</code>
+              Password: <code className="font-semibold">bhishi1234</code>
             </p>
           </div>
         ) : null}

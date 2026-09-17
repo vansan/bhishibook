@@ -1,12 +1,31 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { homePathFor } from "@/lib/auth";
+import type { UserRole } from "@prisma/client";
+import { homePathFor, SELECTED_GROUP_COOKIE } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
-import { createSession, destroySession } from "@/lib/session";
+import { createSession, destroySession, readSessionCookie } from "@/lib/session";
+import { cookies } from "next/headers";
 
 export type LoginState = { error?: string };
+
+/**
+ * BhishiBook has two front doors, because a group is a tenant:
+ *
+ *   /login             group admins and members of a group
+ *   /superadmin/login  BhishiBook platform staff
+ *
+ * Keeping them apart means a group's members never see the platform sign-in,
+ * and a superadmin credential is not accepted on a tenant page. Both doors run
+ * the same verification; only the audience check differs.
+ */
+type Audience = "TENANT" | "PLATFORM";
+
+const AUDIENCE_ROLES: Record<Audience, UserRole[]> = {
+  TENANT: ["GROUP_ADMIN", "MEMBER"],
+  PLATFORM: ["SUPER_ADMIN"],
+};
 
 /**
  * A small in-process brake on password guessing.
@@ -42,7 +61,7 @@ function recordFailure(key: string): void {
 /** Same message for a bad email and a bad password, so the form cannot be used to discover who has an account. */
 const BAD_CREDENTIALS = "Email or password is incorrect";
 
-export async function login(_prevState: LoginState, formData: FormData): Promise<LoginState> {
+async function signIn(formData: FormData, audience: Audience): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "");
@@ -64,7 +83,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
       passwordHash: true,
       memberships: {
         where: { status: { not: "INACTIVE" } },
-        select: { id: true, groupId: true },
+        select: { id: true, groupId: true, group: { select: { status: true, name: true } } },
         orderBy: { joinedAt: "asc" },
         take: 1,
       },
@@ -77,8 +96,30 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     return { error: BAD_CREDENTIALS };
   }
 
-  attempts.delete(email);
+  // The credentials are right, so pointing them at the correct door is
+  // helpful rather than a disclosure: they already proved who they are.
+  if (!AUDIENCE_ROLES[audience].includes(user.role)) {
+    return {
+      error:
+        audience === "TENANT"
+          ? "This is the group sign-in. Platform administrators sign in at /superadmin/login."
+          : "This sign-in is for BhishiBook platform staff. Group members sign in at /login.",
+    };
+  }
+
   const membership = user.memberships[0] ?? null;
+
+  if (audience === "TENANT") {
+    if (!membership) {
+      return { error: "Your account is not linked to a group yet. Ask your group admin." };
+    }
+    // A paused or closed group must not be able to record money.
+    if (membership.group.status !== "ACTIVE") {
+      return { error: `${membership.group.name} is not active. Please contact BhishiBook.` };
+    }
+  }
+
+  attempts.delete(email);
 
   await createSession({
     userId: user.id,
@@ -97,7 +138,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     data: {
       groupId: membership?.groupId ?? null,
       actorUserId: user.id,
-      action: "LOGIN",
+      action: audience === "PLATFORM" ? "LOGIN_PLATFORM" : "LOGIN",
       entityType: "User",
       entityId: user.id,
     },
@@ -111,7 +152,31 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   redirect(destination);
 }
 
+export async function loginTenant(
+  _prevState: LoginState,
+  formData: FormData
+): Promise<LoginState> {
+  return signIn(formData, "TENANT");
+}
+
+export async function loginPlatform(
+  _prevState: LoginState,
+  formData: FormData
+): Promise<LoginState> {
+  return signIn(formData, "PLATFORM");
+}
+
 export async function logout(): Promise<void> {
+  // Read who is leaving before the session goes, so they land back on the
+  // door they came in through.
+  const session = await readSessionCookie();
+  const returnTo = session?.role === "SUPER_ADMIN" ? "/superadmin/login" : "/login";
+
+  const cookieStore = await cookies();
+  // Clear the superadmin's working-group selection too, so the next person to
+  // sign in on this device does not inherit it.
+  cookieStore.delete(SELECTED_GROUP_COOKIE);
   await destroySession();
-  redirect("/login");
+
+  redirect(returnTo);
 }

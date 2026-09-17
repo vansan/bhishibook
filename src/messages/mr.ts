@@ -1,38 +1,88 @@
-export const mr = {
+import type { Messages } from "./en";
+
+export const mr: Messages = {
   app: {
     poweredBy: "BhishiBook द्वारे समर्थित",
     freeSoftware: "सध्या सर्व गटांसाठी मोफत सॉफ्टवेअर",
-    language: "भाषा"
+    language: "भाषा",
   },
   nav: {
-    superadmin: "सुपरअॅडमिन",
-    group: "गट अॅडमिन",
+    superadmin: "सुपरअ‍ॅडमिन",
+    group: "गट अ‍ॅडमिन",
     member: "सभासद",
-    login: "लॉगिन"
+    login: "लॉगिन",
+    logout: "लॉगआउट",
   },
   login: {
-    title: "डेमो प्रवेश निवडा",
+    title: "BhishiBook मध्ये प्रवेश करा",
+    subtitle: "तुमच्या गट अ‍ॅडमिनने दिलेला ईमेल आणि पासवर्ड वापरा.",
+    email: "ईमेल",
+    password: "पासवर्ड",
+    submit: "प्रवेश करा",
+    submitting: "प्रवेश करत आहे...",
+  },
+  denied: {
+    title: "या पानावर तुम्हाला प्रवेश नाही",
     subtitle:
-      "भाग 1 आणि 2 मध्ये SaaS रचना, भूमिका, गट ब्रँडिंग आणि भाषा पाया तयार केला आहे.",
-    superadmin: "सुपरअॅडमिन म्हणून प्रवेश",
-    groupAdmin: "गट अॅडमिन म्हणून प्रवेश",
-    member: "सभासद म्हणून प्रवेश"
+      "हा भाग दुसऱ्या भूमिकेचा किंवा दुसऱ्या गटाचा आहे. काही चूक वाटत असल्यास तुमच्या गट अ‍ॅडमिनशी संपर्क साधा.",
+    backHome: "माझ्या डॅशबोर्डवर परत",
+  },
+  common: {
+    perMonth: "दरमहा",
+    shares: "शेअर्स",
+    active: "सुरू",
+    collected: "जमा",
+    months: "महिने",
+    interestOnly: "फक्त व्याज",
+    corpusPlusInterest: "मुद्दल अधिक व्याज",
+    sharedWithMembers: "सभासदांमध्ये वाटप",
+    keptInCorpus: "निधीत जमा",
   },
   superadmin: {
-    title: "BhishiBook सुपरअॅडमिन",
+    title: "BhishiBook सुपरअ‍ॅडमिन",
     subtitle: "गट, प्लॅटफॉर्म सेटिंग्ज, भाषा आणि SaaS प्रवेश व्यवस्थापित करा.",
-    actions: ["गट तयार करा", "प्लॅन व्यवस्थापित करा", "ऑडिट लॉग पहा"]
+    groups: "गट",
+    activeGroups: "सुरू असलेले गट",
+    members: "सभासद",
+    corpusManaged: "एकूण निधी",
+    onFreePlan: "मोफत प्लॅनवर",
+    haftaAcrossGroups: "सर्व गटांतील जमा हफ्ते",
   },
   group: {
-    title: "MaitriNidhi",
+    title: "गट कार्यक्षेत्र",
     subtitle:
-      "तुमच्या वर्गमित्रांच्या भिशीचे कार्यक्षेत्र. हफ्ते, कर्ज, दंड, पावत्या आणि अहवाल येथे असतील.",
-    actions: ["सभासद जोडा", "सायकल सुरू करा", "दंड सेट करा"]
+      "तुमच्या वर्गमित्रांच्या भिशीचे कार्यक्षेत्र. हफ्ते, कर्ज, दंड, पावत्या आणि अहवाल येथे आहेत.",
+    members: "सभासद",
+    expectedThisMonth: "या महिन्याची अपेक्षा",
+    outOnLoan: "कर्जावर दिलेले",
+    haftaWindow: "हफ्ता मुदत",
+    fineFromThe: "दंड दिवसापासून",
+    cycleRules: "सायकलचे नियम",
+    interestRate: "व्याजदर",
+    perMonthRate: "दरमहा",
+    repaymentWindow: "परतफेड मुदत",
+    borrowingLimit: "कर्ज मर्यादा",
+    ofCorpusContributed: "जमा निधीच्या पट",
+    distribution: "वितरण",
+    fines: "दंड",
+    availableToLend: "कर्जासाठी उपलब्ध",
+    noCycle: "या गटासाठी अद्याप कोणतीही सायकल सुरू झालेली नाही.",
   },
   member: {
     title: "माझे पासबुक",
-    subtitle:
-      "सभासदांना त्यांचे हफ्ते, कर्ज, व्याज देय, पावत्या आणि अंतिम वितरण येथे दिसेल.",
-    actions: ["पावत्या पहा", "देय तपासा", "पासबुक डाउनलोड करा"]
-  }
+    subtitle: "तुमचे हफ्ते, कर्ज, व्याज देय, पावत्या आणि अंतिम वितरण.",
+    myShares: "माझे शेअर्स",
+    paidInSoFar: "आतापर्यंत भरलेले",
+    totalDues: "एकूण देय",
+    nothingOutstanding: "काहीही देय नाही",
+    receipts: "पावत्या",
+    myLoans: "माझी कर्जे",
+    outstandingPrincipal: "शिल्लक मुद्दल",
+    activeLoans: "सुरू असलेली कर्जे",
+    interestOutstanding: "शिल्लक व्याज",
+    canStillBorrow: "मी अजून घेऊ शकतो",
+    hafta: "हफ्ता",
+    interest: "व्याज",
+    fines: "दंड",
+  },
 };

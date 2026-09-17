@@ -1,45 +1,20 @@
-import {
-  Banknote,
-  Building2,
-  CircleDollarSign,
-  Clock3,
-  Languages,
-  ReceiptText,
-  ShieldCheck,
-  Users
-} from "lucide-react";
-
+/**
+ * Platform-level branding constants.
+ *
+ * This file used to also hold hardcoded demo statistics that the dashboards
+ * silently fell back to whenever a database query failed. Those are gone: the
+ * dashboards now read real figures and fail loudly if they cannot.
+ */
 export const platform = {
   name: "BhishiBook",
-  freeModeLabel: "Free for all groups",
-  defaultGroupName: "MaitriNidhi"
+  tagline: "Shared savings, honestly tracked",
+  defaultGroupName: "MaitriNidhi",
 };
 
-export const demoStats = {
-  platform: [
-    { label: "Groups", value: "1", icon: Building2 },
-    { label: "Members", value: "33", icon: Users },
-    { label: "Corpus", value: "₹35,000", icon: Banknote },
-    { label: "Languages", value: "EN / MR", icon: Languages }
-  ],
-  group: [
-    { label: "This month", value: "₹35,000", icon: Banknote },
-    { label: "Active loans", value: "0", icon: CircleDollarSign },
-    { label: "Receipts", value: "Ready", icon: ReceiptText },
-    { label: "Due window", value: "1-10", icon: Clock3 }
-  ],
-  member: [
-    { label: "My shares", value: "1", icon: ShieldCheck },
-    { label: "Hafta due", value: "₹1,000", icon: Banknote },
-    { label: "Loans", value: "None", icon: CircleDollarSign },
-    { label: "Receipts", value: "0", icon: ReceiptText }
-  ]
-};
-
-export const roadmap = [
-  "SaaS foundation with superadmin, group admin, and member roles",
-  "Group branding with custom group name and Powered by BhishiBook footer",
-  "English and Marathi language foundation",
-  "Member, cycle, contribution, loan, fine, receipt, ledger, and audit data model",
-  "Next phase: working contribution, fine, loan, and ledger screens"
+export const highlights = [
+  "Every group gets its own name, language, members, and cycle rules",
+  "Monthly hafta tracked with automatic per-day fines after the due date",
+  "Loans at a flat monthly interest rate with a 2x corpus borrowing limit",
+  "Every rupee posted to a ledger that is corrected by reversal, never deleted",
+  "Share-based final distribution that borrowers take part in too",
 ];

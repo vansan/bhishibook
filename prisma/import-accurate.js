@@ -1,4 +1,5 @@
 const { PrismaClient } = require("@prisma/client");
+const { randomUUID } = require("crypto");
 const prisma = new PrismaClient();
 
 const GROUP_ID = "00000000-0000-0000-0000-000000000111";
@@ -196,56 +197,59 @@ async function main() {
   console.log("Generating 363 contributions, ledger entries, and receipts...");
   let totalContribAmount = 0;
 
+  const contribsToInsert = [];
+  const receiptsToInsert = [];
+  const ledgerToInsert = [];
+
   for (const m of MEMBERS) {
     const mem = memberMap.get(m.en);
     const monthlyDue = m.shares * 1000;
 
     for (const mo of MONTHS) {
-      const contrib = await prisma.contribution.create({
-        data: {
-          cycleId: CYCLE_ID,
-          memberId: mem.id,
-          month: mo.month,
-          year: mo.year,
-          amountDue: monthlyDue,
-          amountPaid: monthlyDue,
-          paidOn: new Date(mo.year, mo.month - 1, 5),
-          notes: `Hafta for ${mo.month}/${mo.year}`,
-        },
+      const contribId = randomUUID();
+      contribsToInsert.push({
+        id: contribId,
+        cycleId: CYCLE_ID,
+        memberId: mem.id,
+        month: mo.month,
+        year: mo.year,
+        amountDue: monthlyDue,
+        amountPaid: monthlyDue,
+        paidOn: new Date(mo.year, mo.month - 1, 5),
+        notes: `Hafta for ${mo.month}/${mo.year}`,
       });
 
       totalContribAmount += monthlyDue;
 
-      // Receipt
-      await prisma.receipt.create({
-        data: {
-          receiptNo: nextReceiptNumber(),
-          groupId: GROUP_ID,
-          cycleId: CYCLE_ID,
-          memberId: mem.id,
-          contributionId: contrib.id,
-          receiptType: "CONTRIBUTION",
-          amount: monthlyDue,
-          issuedAt: new Date(mo.year, mo.month - 1, 5),
-          whatsappText: `पावती: ${mem.displayNameMr || mem.displayName} यांच्याकडून ₹${monthlyDue} हप्ता जमा.`,
-        },
+      receiptsToInsert.push({
+        receiptNo: nextReceiptNumber(),
+        groupId: GROUP_ID,
+        cycleId: CYCLE_ID,
+        memberId: mem.id,
+        contributionId: contribId,
+        receiptType: "CONTRIBUTION",
+        amount: monthlyDue,
+        issuedAt: new Date(mo.year, mo.month - 1, 5),
+        whatsappText: `पावती: ${mem.displayNameMr || mem.displayName} यांच्याकडून ₹${monthlyDue} हप्ता जमा.`,
       });
 
-      // Double-entry Ledger
-      await prisma.ledgerEntry.create({
-        data: {
-          groupId: GROUP_ID,
-          cycleId: CYCLE_ID,
-          entryType: "CONTRIBUTION",
-          amount: monthlyDue,
-          entryDate: new Date(mo.year, mo.month - 1, 5),
-          referenceType: "CONTRIBUTION",
-          referenceId: contrib.id,
-          description: `Hafta: ${mem.displayName} (${mo.month}/${mo.year})`,
-        },
+      ledgerToInsert.push({
+        groupId: GROUP_ID,
+        cycleId: CYCLE_ID,
+        entryType: "CONTRIBUTION",
+        amount: monthlyDue,
+        entryDate: new Date(mo.year, mo.month - 1, 5),
+        referenceType: "CONTRIBUTION",
+        referenceId: contribId,
+        description: `Hafta: ${mem.displayName} (${mo.month}/${mo.year})`,
       });
     }
   }
+
+  await prisma.contribution.createMany({ data: contribsToInsert });
+  await prisma.receipt.createMany({ data: receiptsToInsert });
+  await prisma.ledgerEntry.createMany({ data: ledgerToInsert });
+
   console.log(`Total Contributions Created: 363 (₹${totalContribAmount.toLocaleString()})`);
 
   // 8. Insert 12 Loans

@@ -12,14 +12,14 @@ export function LanguageToggle() {
     <div className="flex items-center gap-1 rounded-md border border-[var(--line)] bg-white p-1">
       <Languages size={16} className="mx-2 text-[var(--muted)]" />
       <button
-        className="focus-ring rounded px-2 py-1 text-sm font-medium hover:bg-emerald-50"
+        className="focus-ring rounded px-2 py-1 text-sm font-medium hover:bg-slate-100 hover:text-[var(--primary)]"
         onClick={() => setLanguage("en")}
         type="button"
       >
         EN
       </button>
       <button
-        className="focus-ring rounded px-2 py-1 text-sm font-medium hover:bg-emerald-50"
+        className="focus-ring rounded px-2 py-1 text-sm font-medium hover:bg-slate-100 hover:text-[var(--primary)]"
         onClick={() => setLanguage("mr")}
         type="button"
       >

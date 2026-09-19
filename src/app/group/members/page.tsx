@@ -2,7 +2,8 @@ import { UserPlus } from "lucide-react";
 import { ActionForm, Field } from "@/components/ui/action-form";
 import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
-import { getMessages } from "@/lib/i18n";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { formatMemberName, formatPhoneNumber } from "@/lib/members";
 import { decimalToPaise, formatPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { addMemberAction } from "../actions";
@@ -10,7 +11,7 @@ import { MemberRow } from "./member-row";
 
 export default async function MembersPage() {
   const scope = await requireGroupAdmin();
-  const t = await getMessages();
+  const [t, locale] = await Promise.all([getMessages(), getLocale()]);
 
   const members = await prisma.groupMember.findMany({
     where: { groupId: scope.groupId },
@@ -18,12 +19,14 @@ export default async function MembersPage() {
     select: {
       id: true,
       displayName: true,
+      displayNameMr: true,
       phone: true,
       email: true,
       shareCount: true,
       monthlyHafta: true,
       status: true,
       userId: true,
+      user: { select: { role: true } },
       defaultDecision: true,
       contributions: { select: { amountPaid: true } },
     },
@@ -87,7 +90,7 @@ export default async function MembersPage() {
       </div>
 
       <div className="mt-6 overflow-x-auto rounded-lg border border-[var(--line)] bg-white">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[1080px] text-sm">
           <caption className="sr-only">{t.members.title}</caption>
           <thead>
             <tr className="border-b border-[var(--line)] text-left text-[var(--muted)]">
@@ -106,7 +109,7 @@ export default async function MembersPage() {
               <th className="px-4 py-3 font-medium" scope="col">
                 {t.members.login}
               </th>
-              <th className="px-4 py-3 text-right font-medium" scope="col">
+              <th className="px-4 py-3 text-left font-medium" scope="col">
                 <span className="sr-only">{t.members.edit}</span>
               </th>
             </tr>
@@ -125,6 +128,9 @@ export default async function MembersPage() {
                   status: t.common.status,
                   active: t.common.active,
                   inactive: t.common.inactive,
+                  adminBadge: t.common.adminBadge,
+                  makeAdmin: t.members.makeAdmin,
+                  removeAdmin: t.members.removeAdmin,
                   login: t.members.login,
                   hasLogin: t.members.hasLogin,
                   noLogin: t.members.noLogin,
@@ -142,13 +148,14 @@ export default async function MembersPage() {
                 }}
                 member={{
                   id: member.id,
-                  displayName: member.displayName,
-                  phone: member.phone,
+                  displayName: formatMemberName(member, locale),
+                  phone: formatPhoneNumber(member.phone),
                   email: member.email,
                   shareCount: member.shareCount,
                   monthlyHafta: member.monthlyHafta.toFixed(2),
                   status: member.status,
                   hasLogin: member.userId !== null,
+                  isAdmin: member.user?.role === "GROUP_ADMIN" || member.user?.role === "SUPER_ADMIN",
                   decision: member.defaultDecision,
                   contributedLabel: formatPaise(
                     member.contributions.reduce(

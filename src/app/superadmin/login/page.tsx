@@ -1,4 +1,5 @@
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { LoginForm } from "@/app/(auth)/login/login-form";
 import { loginPlatform } from "@/app/(auth)/login/actions";
@@ -23,8 +24,16 @@ export default async function SuperadminLoginPage({ searchParams }: PageProps) {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--foreground)]">
       <header className="flex items-center justify-between px-4 py-4 sm:px-6">
-        <span className="flex items-center gap-2 font-bold text-white">
-          <ShieldCheck size={20} />
+        <span className="flex items-center gap-2.5 font-bold text-white">
+          <div className="size-8 overflow-hidden rounded-lg bg-white p-0.5">
+            <Image
+              alt="BhishiBook"
+              className="size-full object-contain"
+              height={32}
+              src="/logo-icon.png"
+              width={32}
+            />
+          </div>
           {platform.name}
         </span>
         <LanguageToggle />

@@ -131,6 +131,7 @@ model GroupMember {
   groupId          String              @db.Uuid
   userId           String?             @db.Uuid
   displayName      String
+  displayNameMr    String?
   phone            String?
   email            String?
   shareCount       Int                 @default(1)
@@ -149,6 +150,9 @@ model GroupMember {
   fines            Fine[]
   receipts         Receipt[]
   distributions    FinalDistribution[]
+  loanApplications LoanApplication[]   @relation("MemberLoanApplications")
+  guaranteedLoans  LoanGuarantor[]     @relation("MemberGuarantees")
+  loanVotes        LoanApplicationVote[] @relation("MemberLoanVotes")
 
   @@index([groupId])
   @@index([userId])
@@ -177,6 +181,7 @@ model Cycle {
   receipts              Receipt[]
   periodLocks           PeriodLock[]
   distributions         FinalDistribution[]
+  loanApplications      LoanApplication[]
 
   @@index([groupId])
 }
@@ -219,6 +224,7 @@ model Loan {
   interestDues    InterestDue[]
   fines           Fine[]
   receipts        Receipt[]
+  application     LoanApplication? @relation("DisbursedLoanApplication")
 
   @@index([cycleId])
   @@index([memberId])
@@ -438,3 +444,75 @@ model AuditLog {
   @@index([actorUserId])
   @@index([createdAt])
 }
+
+enum LoanApplicationStatus {
+  PENDING_APPROVAL
+  READY_FOR_DISBURSEMENT
+  DISBURSED
+  REJECTED
+  CANCELLED
+}
+
+enum GuarantorStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum VoteChoice {
+  APPROVE
+  REJECT
+}
+
+model LoanApplication {
+  id              String                @id @default(uuid()) @db.Uuid
+  cycleId         String                @db.Uuid
+  applicantId     String                @db.Uuid
+  requestedAmount Decimal               @db.Decimal(12, 2)
+  termMonths      Int                   @default(6)
+  purpose         String?
+  status          LoanApplicationStatus @default(PENDING_APPROVAL)
+  appliedAt       DateTime              @default(now())
+  disbursedLoanId String?               @unique @db.Uuid
+
+  cycle           Cycle                 @relation(fields: [cycleId], references: [id])
+  applicant       GroupMember           @relation("MemberLoanApplications", fields: [applicantId], references: [id])
+  disbursedLoan   Loan?                 @relation("DisbursedLoanApplication", fields: [disbursedLoanId], references: [id])
+  guarantors      LoanGuarantor[]
+  votes           LoanApplicationVote[]
+
+  @@index([cycleId])
+  @@index([applicantId])
+  @@index([status])
+}
+
+model LoanGuarantor {
+  id            String          @id @default(uuid()) @db.Uuid
+  applicationId String          @db.Uuid
+  memberId      String          @db.Uuid
+  status        GuarantorStatus @default(PENDING)
+  respondedAt   DateTime?
+
+  application   LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  member        GroupMember     @relation("MemberGuarantees", fields: [memberId], references: [id])
+
+  @@unique([applicationId, memberId])
+  @@index([applicationId])
+  @@index([memberId])
+}
+
+model LoanApplicationVote {
+  id            String     @id @default(uuid()) @db.Uuid
+  applicationId String     @db.Uuid
+  memberId      String     @db.Uuid
+  decision      VoteChoice
+  votedAt       DateTime   @default(now())
+
+  application   LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  member        GroupMember     @relation("MemberLoanVotes", fields: [memberId], references: [id])
+
+  @@unique([applicationId, memberId])
+  @@index([applicationId])
+  @@index([memberId])
+}
+

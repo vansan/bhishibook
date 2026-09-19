@@ -10,7 +10,8 @@ import {
   yearMonthOf,
   type YearMonth,
 } from "@/lib/finance";
-import { getMessages } from "@/lib/i18n";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { formatMemberName } from "@/lib/members";
 import { atLeastZero, decimalToPaise, formatPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
@@ -21,7 +22,11 @@ type PageProps = { searchParams: Promise<{ month?: string }> };
 
 export default async function ContributionsPage({ searchParams }: PageProps) {
   const scope = await requireGroupAdmin();
-  const [t, { month: monthParam }] = await Promise.all([getMessages(), searchParams]);
+  const [t, locale, { month: monthParam }] = await Promise.all([
+    getMessages(),
+    getLocale(),
+    searchParams,
+  ]);
 
   const cycle = await prisma.cycle.findFirst({
     where: { groupId: scope.groupId, status: { in: ["ACTIVE", "DRAFT", "CLOSING"] } },
@@ -50,7 +55,7 @@ export default async function ContributionsPage({ searchParams }: PageProps) {
         amountDue: true,
         amountPaid: true,
         paidOn: true,
-        member: { select: { id: true, displayName: true } },
+        member: { select: { id: true, displayName: true, displayNameMr: true } },
         fines: {
           select: { id: true, amount: true, amountPaid: true, waivedAmount: true, daysLate: true },
         },
@@ -236,7 +241,7 @@ export default async function ContributionsPage({ searchParams }: PageProps) {
                     }}
                     row={{
                       id: row.id,
-                      memberName: row.member.displayName,
+                      memberName: formatMemberName(row.member, locale),
                       dueLabel: formatPaise(due, whole),
                       paidLabel: formatPaise(paid, whole),
                       outstandingRupees: (outstanding / 100).toFixed(2),

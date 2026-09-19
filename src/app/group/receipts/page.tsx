@@ -1,6 +1,7 @@
 import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
-import { getMessages } from "@/lib/i18n";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { formatMemberName } from "@/lib/members";
 import { decimalToPaise, formatPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { whatsappShareUrl } from "@/lib/receipt-text";
@@ -8,7 +9,7 @@ import { ReceiptActions } from "./receipt-actions";
 
 export default async function ReceiptsPage() {
   const scope = await requireGroupAdmin();
-  const t = await getMessages();
+  const [t, locale] = await Promise.all([getMessages(), getLocale()]);
 
   const receipts = await prisma.receipt.findMany({
     where: { groupId: scope.groupId },
@@ -21,7 +22,7 @@ export default async function ReceiptsPage() {
       amount: true,
       issuedAt: true,
       whatsappText: true,
-      member: { select: { displayName: true, phone: true } },
+      member: { select: { displayName: true, displayNameMr: true, phone: true } },
     },
   });
 
@@ -76,7 +77,9 @@ export default async function ReceiptsPage() {
                   <td className="px-4 py-3 text-[var(--muted)]">
                     {receipt.issuedAt.toISOString().slice(0, 10)}
                   </td>
-                  <td className="px-4 py-3">{receipt.member?.displayName ?? "-"}</td>
+                  <td className="px-4 py-3">
+                    {receipt.member ? formatMemberName(receipt.member, locale) : "-"}
+                  </td>
                   <td className="px-4 py-3">{receipt.receiptType}</td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {formatPaise(decimalToPaise(receipt.amount), whole)}
@@ -84,9 +87,11 @@ export default async function ReceiptsPage() {
                   <td className="px-4 py-3 text-right">
                     <ReceiptActions
                       copiedLabel={t.receipts.copied}
+                      copyLabel={t.receipts.copy}
                       pdfLabel={t.ledger.downloadPdf}
                       receiptId={receipt.id}
-                      copyLabel={t.receipts.copy}
+                      recipientName={receipt.member ? formatMemberName(receipt.member, locale) : undefined}
+                      recipientPhone={receipt.member?.phone}
                       shareLabel={t.receipts.shareWhatsapp}
                       shareUrl={whatsappShareUrl(
                         receipt.whatsappText ?? "",

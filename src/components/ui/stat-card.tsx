@@ -16,7 +16,7 @@ export function StatCard({ icon: Icon, label, value, hint }: StatCardProps) {
           <p className="mt-2 text-2xl font-semibold text-[var(--foreground)]">{value}</p>
           {hint ? <p className="mt-1 text-xs text-[var(--muted)]">{hint}</p> : null}
         </div>
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-[var(--primary)]">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[var(--primary)]">
           <Icon size={20} />
         </div>
       </div>

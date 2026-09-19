@@ -38,6 +38,7 @@ export type DistributionPreview = {
   rows: Array<{
     memberId: string;
     displayName: string;
+    displayNameMr?: string | null;
     shareCount: number;
     corpusContributedPaise: Paise;
     interestSharePaise: Paise;
@@ -74,6 +75,7 @@ export async function previewDistribution(
       select: {
         id: true,
         displayName: true,
+        displayNameMr: true,
         shareCount: true,
         status: true,
         defaultDecision: true,
@@ -173,12 +175,16 @@ export async function previewDistribution(
     retainedInCorpusPaise: result.retainedInCorpusPaise,
     totalShares: result.totalShares,
     totalPayoutPaise: result.totalPayoutPaise,
-    rows: result.settlements.map((settlement) => ({
-      ...settlement,
-      excluded:
-        distributionMembers.find((m) => m.memberId === settlement.memberId)
-          ?.excludeFromPayout ?? false,
-    })),
+    rows: result.settlements.map((settlement) => {
+      const member = members.find((m) => m.id === settlement.memberId);
+      return {
+        ...settlement,
+        displayNameMr: member?.displayNameMr,
+        excluded:
+          distributionMembers.find((m) => m.memberId === settlement.memberId)
+            ?.excludeFromPayout ?? false,
+      };
+    }),
   };
 }
 

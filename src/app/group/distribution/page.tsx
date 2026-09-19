@@ -1,15 +1,17 @@
 import { AlertTriangle, PieChart } from "lucide-react";
 import { ActionForm, Field } from "@/components/ui/action-form";
 import { requireGroupAdmin } from "@/lib/auth";
-import { getMessages } from "@/lib/i18n";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { formatMemberName } from "@/lib/members";
 import { formatPaise } from "@/lib/money";
 import { previewDistribution } from "@/lib/services/distribution";
 import { closeCycleAction } from "../actions";
 
 export default async function DistributionPage() {
   const scope = await requireGroupAdmin();
-  const [t, preview] = await Promise.all([
+  const [t, locale, preview] = await Promise.all([
     getMessages(),
+    getLocale(),
     previewDistribution(scope.groupId),
   ]);
 
@@ -36,7 +38,7 @@ export default async function DistributionPage() {
       <p
         className={
           preview.isClosed
-            ? "mt-4 inline-flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-[var(--primary)]"
+            ? "mt-4 inline-flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-[var(--primary)]"
             : "mt-4 inline-flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm font-medium text-[var(--warn)]"
         }
       >
@@ -107,7 +109,7 @@ export default async function DistributionPage() {
             {preview.rows.map((row) => (
               <tr className="border-b border-[var(--line)] last:border-0" key={row.memberId}>
                 <td className="px-4 py-3 font-medium">
-                  {row.displayName}
+                  {formatMemberName(row, locale)}
                   {row.excluded ? (
                     <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
                       {t.common.none}

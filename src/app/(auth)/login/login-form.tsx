@@ -10,6 +10,7 @@ type LoginFormProps = {
   next?: string;
   labels: {
     email: string;
+    emailPlaceholder?: string;
     password: string;
     submit: string;
     submitting: string;
@@ -30,12 +31,13 @@ export function LoginForm({ signIn, next, labels }: LoginFormProps) {
           {labels.email}
         </label>
         <input
-          autoComplete="email"
+          autoComplete="username"
           className="focus-ring mt-1 w-full rounded-md border border-[var(--line)] bg-white px-3 py-2.5 text-base"
           id="email"
           name="email"
+          placeholder={labels.emailPlaceholder}
           required
-          type="email"
+          type="text"
         />
       </div>
 

@@ -9,7 +9,7 @@ export type DashboardStat = {
 };
 
 type DashboardPageProps = {
-  eyebrow: string;
+  eyebrow: React.ReactNode;
   title: string;
   subtitle: string;
   stats: DashboardStat[];

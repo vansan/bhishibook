@@ -27,7 +27,7 @@ type GroupRowProps = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  ACTIVE: "bg-emerald-50 text-[var(--primary)]",
+  ACTIVE: "bg-blue-50 text-[var(--primary)]",
   PAUSED: "bg-amber-50 text-[var(--warn)]",
   CLOSED: "bg-red-50 text-red-700",
 };

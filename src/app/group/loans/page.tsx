@@ -2,17 +2,20 @@ import { CircleDollarSign, TrendingUp } from "lucide-react";
 import { ActionForm, Field, SelectField } from "@/components/ui/action-form";
 import { ExportButton } from "@/components/ui/export-button";
 import { requireGroupAdmin } from "@/lib/auth";
-import { getMessages } from "@/lib/i18n";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { formatMemberName } from "@/lib/members";
 import { atLeastZero, decimalToPaise, formatPaise, sumPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { getGroupLoanApplications } from "@/lib/services/loan-applications";
 import { createLoanAction, generateInterestAction } from "../actions";
+import { LoanApplicationsAdmin } from "./loan-applications-admin";
 import { LoanRow } from "./loan-row";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default async function LoansPage() {
   const scope = await requireGroupAdmin();
-  const t = await getMessages();
+  const [t, locale] = await Promise.all([getMessages(), getLocale()]);
 
   const cycle = await prisma.cycle.findFirst({
     where: { groupId: scope.groupId, status: { in: ["ACTIVE", "DRAFT", "CLOSING"] } },
@@ -31,13 +34,14 @@ export default async function LoansPage() {
     );
   }
 
-  const [members, loans] = await Promise.all([
+  const [members, loans, applications] = await Promise.all([
     prisma.groupMember.findMany({
       where: { groupId: scope.groupId, status: "ACTIVE" },
       orderBy: { displayName: "asc" },
       select: {
         id: true,
         displayName: true,
+        displayNameMr: true,
         contributions: { select: { amountPaid: true } },
       },
     }),
@@ -51,12 +55,13 @@ export default async function LoansPage() {
         dueOn: true,
         status: true,
         interestRate: true,
-        member: { select: { displayName: true } },
+        member: { select: { displayName: true, displayNameMr: true } },
         repayments: { select: { principalAmount: true } },
         interestDues: { select: { amountDue: true, amountPaid: true } },
         fines: { select: { amount: true, amountPaid: true, waivedAmount: true } },
       },
     }),
+    getGroupLoanApplications(scope.groupId),
   ]);
 
   const whole = { whole: true } as const;
@@ -67,9 +72,10 @@ export default async function LoansPage() {
       member.contributions.map((row) => decimalToPaise(row.amountPaid))
     );
     const headroom = Math.floor(contributed * multiple);
+    const mName = formatMemberName(member, locale);
     return {
       value: member.id,
-      label: `${member.displayName} — ${t.loans.canBorrow} ${formatPaise(headroom, whole)}`,
+      label: `${mName} — ${t.loans.canBorrow} ${formatPaise(headroom, whole)}`,
     };
   });
 
@@ -134,6 +140,46 @@ export default async function LoansPage() {
             <Field label={t.common.notes} name="notes" />
           </div>
         </ActionForm>
+      </div>
+
+      {/* Loan Applications Workflow & Approvals */}
+      <div className="mt-8">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-[var(--foreground)]">
+            {t.loans.applications}
+          </h2>
+          <p className="text-xs text-[var(--muted)]">
+            {locale === "mr"
+              ? "किमान २ जामीन व ५०% सभासद मंजुरीनंतरच निधी उपलब्धतेनुसार कर्ज वाटप सक्रिय होते."
+              : "Disbursement button activates only after min. 2 Jamin acceptances and 50% member approvals when treasury funds are available."}
+          </p>
+        </div>
+
+        <LoanApplicationsAdmin
+          applications={applications}
+          labels={{
+            title: t.loans.applications,
+            subtitle: t.loans.subtitle,
+            applicant: t.common.member,
+            amount: t.common.amount,
+            term: t.loans.termMonths,
+            guarantors: t.loans.guarantors,
+            approvals: t.loans.approvalProgress,
+            treasuryCash: t.loans.availableTreasury,
+            status: t.common.status,
+            actions: t.loans.disburse,
+            disburseBtn: t.loans.disburse,
+            disbursingLabel: t.loans.disbursing,
+            noApplications: t.loans.noApplications,
+            pendingApproval: t.loans.awaitingApprovals,
+            readyForDisbursement: t.loans.readyForDisbursement,
+            disbursed: t.loans.closed,
+            rejected: t.loans.rejectLoan,
+            awaitingJamin: t.loans.selectJamin,
+            awaitingVotes: t.loans.approvalProgress,
+            insufficientFunds: t.loans.insufficientFunds,
+          }}
+        />
       </div>
 
       {loans.length === 0 ? (
@@ -206,7 +252,7 @@ export default async function LoansPage() {
                     }}
                     loan={{
                       id: loan.id,
-                      memberName: loan.member.displayName,
+                      memberName: formatMemberName(loan.member, locale),
                       principalLabel: formatPaise(principal, whole),
                       outstandingPrincipalLabel: formatPaise(outstandingPrincipal, whole),
                       totalOwedLabel: formatPaise(totalOwed, whole),

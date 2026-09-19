@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f7f2;
-  --foreground: #1f2933;
-  --muted: #667085;
-  --line: #d8ddd2;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
   --surface: #ffffff;
-  --primary: #166534;
-  --primary-strong: #14532d;
-  --accent: #0f766e;
-  --warn: #b45309;
+  --primary: #0a3a6b;
+  --primary-strong: #082d54;
+  --accent: #d97706;
+  --warn: #c2410c;
 }
 
 * {
@@ -42,6 +42,6 @@ select {
 }
 
 .focus-ring:focus-visible {
-  outline: 3px solid rgb(20 83 45 / 0.28);
+  outline: 3px solid rgb(10 58 107 / 0.28);
   outline-offset: 3px;
 }

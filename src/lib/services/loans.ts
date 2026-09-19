@@ -55,7 +55,7 @@ async function outstandingPrincipalPaise(tx: Tx, memberId: string): Promise<Pais
 }
 
 /** Cash the group could lend right now. */
-async function availableFundsPaise(tx: Tx, groupId: string): Promise<Paise> {
+export async function availableFundsPaise(tx: Tx, groupId: string): Promise<Paise> {
   const [contributions, repayments, loans, fines] = await Promise.all([
     tx.contribution.aggregate({
       where: { cycle: { groupId } },
@@ -76,6 +76,10 @@ async function availableFundsPaise(tx: Tx, groupId: string): Promise<Paise> {
       decimalToPaise(fines._sum.amountPaid) -
       decimalToPaise(loans._sum.principal)
   );
+}
+
+export async function getGroupAvailableFunds(groupId: string): Promise<Paise> {
+  return availableFundsPaise(prisma, groupId);
 }
 
 export type LoanLimits = {

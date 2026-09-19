@@ -4,9 +4,13 @@ import { getLocale } from "@/lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BhishiBook",
-  description: "Multi-group bhishi management SaaS",
+  title: "BhishiBook - 96/97 KH भिशी",
+  description: "Multi-group bhishi & group fund management",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/logo-icon.png",
+    apple: "/logo-icon.png",
+  },
   appleWebApp: {
     capable: true,
     title: "BhishiBook",
@@ -15,9 +19,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#166534",
+  themeColor: "#0a3a6b",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

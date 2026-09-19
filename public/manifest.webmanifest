@@ -1,16 +1,22 @@
 {
-  "name": "BhishiBook",
+  "name": "BhishiBook - 96/97 KH भिशी",
   "short_name": "BhishiBook",
-  "description": "Multi-group bhishi management",
+  "description": "MaitriNidhi Bhishi & Group Fund Management",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f7f7f2",
-  "theme_color": "#166534",
-  "lang": "en",
+  "background_color": "#ffffff",
+  "theme_color": "#0a3a6b",
+  "lang": "mr",
   "dir": "ltr",
   "icons": [
+    {
+      "src": "/logo-icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
@@ -22,12 +28,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ]
 }

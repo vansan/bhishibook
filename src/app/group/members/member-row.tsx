@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Gavel, KeyRound, Pencil, X } from "lucide-react";
+import { Gavel, KeyRound, Pencil, ShieldAlert, ShieldCheck, X } from "lucide-react";
 import { ActionForm, Field, SelectField } from "@/components/ui/action-form";
 import { cn } from "@/lib/utils";
 import {
   inviteMemberLoginAction,
   recordDefaultDecisionAction,
   resetMemberPasswordAction,
+  toggleMemberAdminAction,
   updateMemberAction,
 } from "../actions";
 
@@ -23,11 +24,15 @@ type MemberRowProps = {
     monthlyHafta: string;
     status: string;
     hasLogin: boolean;
+    isAdmin: boolean;
     decision: string;
     contributedLabel: string;
     haftaLabel: string;
   };
   labels: {
+    adminBadge: string;
+    makeAdmin: string;
+    removeAdmin: string;
     edit: string;
     update: string;
     name: string;
@@ -65,7 +70,14 @@ export function MemberRow({ member, labels }: MemberRowProps) {
     <>
       <tr className="border-b border-[var(--line)]">
         <td className="px-4 py-3">
-          <span className="font-medium">{member.displayName}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{member.displayName}</span>
+            {member.isAdmin ? (
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-[var(--primary)]">
+                {labels.adminBadge}
+              </span>
+            ) : null}
+          </div>
           {member.phone ? (
             <span className="block text-xs text-[var(--muted)]">{member.phone}</span>
           ) : null}
@@ -74,29 +86,39 @@ export function MemberRow({ member, labels }: MemberRowProps) {
         <td className="px-4 py-3 text-right">{member.haftaLabel}</td>
         <td className="px-4 py-3 text-right">{member.contributedLabel}</td>
         <td className="px-4 py-3">
-          <span
-            className={cn(
-              "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
-              member.hasLogin
-                ? "bg-emerald-50 text-[var(--primary)]"
-                : "bg-gray-100 text-[var(--muted)]"
-            )}
-          >
-            {member.hasLogin ? labels.hasLogin : labels.noLogin}
-          </span>
-          {isInactive ? (
-            <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-[var(--warn)]">
-              {labels.inactive}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={cn(
+                "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
+                member.hasLogin
+                  ? "bg-blue-50 text-[var(--primary)]"
+                  : "bg-gray-100 text-[var(--muted)]"
+              )}
+            >
+              {member.hasLogin ? labels.hasLogin : labels.noLogin}
             </span>
-          ) : null}
+            {isInactive ? (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-[var(--warn)]">
+                {labels.inactive}
+              </span>
+            ) : null}
+          </div>
         </td>
         <td className="px-4 py-3">
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex items-center justify-start gap-2 whitespace-nowrap">
             <RowButton icon={Pencil} label={labels.edit} onClick={() => toggle("edit")} />
             <RowButton
               icon={KeyRound}
               label={member.hasLogin ? labels.resetPassword : labels.inviteLogin}
               onClick={() => toggle("login")}
+            />
+            <ActionForm
+              action={toggleMemberAdminAction}
+              hidden={{ memberId: member.id, makeAdmin: member.isAdmin ? "0" : "1" }}
+              icon={member.isAdmin ? ShieldAlert : ShieldCheck}
+              pendingLabel="..."
+              submitLabel={member.isAdmin ? labels.removeAdmin : labels.makeAdmin}
+              variant={member.isAdmin ? "danger-link" : "link"}
             />
             <RowButton
               icon={Gavel}

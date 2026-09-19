@@ -1,4 +1,5 @@
-import { KeyRound, Shield } from "lucide-react";
+import Image from "next/image";
+import { Shield } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { getMessages } from "@/lib/i18n";
@@ -18,17 +19,32 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <AppShell showNav={false}>
       <section className="mx-auto max-w-md px-4 py-12 sm:px-6">
-        <div className="rounded-lg border border-[var(--line)] bg-white p-6">
-          <div className="flex size-11 items-center justify-center rounded-md bg-emerald-50 text-[var(--primary)]">
-            <KeyRound size={22} />
+        <div className="rounded-xl border border-[var(--line)] bg-white p-6 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="size-12 shrink-0 overflow-hidden rounded-xl border border-[var(--line)] bg-slate-50 p-1">
+              <Image
+                alt="BhishiBook Emblem"
+                className="size-full object-contain"
+                height={48}
+                priority
+                src="/logo-icon.png"
+                width={48}
+              />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+                96/97 KH भिशी - MaitriNidhi
+              </p>
+              <h1 className="text-2xl font-bold text-[var(--foreground)]">{t.login.title}</h1>
+            </div>
           </div>
-          <h1 className="mt-4 text-2xl font-bold">{t.login.title}</h1>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{t.login.subtitle}</p>
+          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{t.login.subtitle}</p>
 
           <div className="mt-6">
             <LoginForm
               labels={{
                 email: t.login.email,
+                emailPlaceholder: t.login.emailPlaceholder,
                 password: t.login.password,
                 submit: t.login.submit,
                 submitting: t.login.submitting,

@@ -42,6 +42,6 @@
     "vitest": "^5.0.1"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/import-accurate.js"
   }
 }

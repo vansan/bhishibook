@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/action-state";
 import { requireGroupAdmin } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
 import { rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import {
@@ -21,6 +22,7 @@ import {
   updateMember,
 } from "@/lib/services/members";
 import { closeCycleWithDistribution } from "@/lib/services/distribution";
+import { disburseApplicationLoan } from "@/lib/services/loan-applications";
 import {
   createCycle,
   updateCycle,
@@ -554,6 +556,115 @@ export async function recordDefaultDecisionAction(
   }
 }
 
+export async function toggleMemberAdminAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const memberId = text(formData, "memberId");
+    const makeAdmin = text(formData, "makeAdmin") === "1";
+
+    const member = await prisma.groupMember.findFirst({
+      where: { id: memberId, groupId: scope.groupId },
+      include: { user: true },
+    });
+    if (!member) return { error: "Member not found" };
+
+    if (!member.user) {
+      if (!makeAdmin) {
+        return { error: "This member is not an admin." };
+      }
+
+      // Automatically create a user login for this member and promote them to Admin
+      let email = member.email?.trim().toLowerCase();
+      if (!email || !email.includes("@")) {
+        const cleanPhone = (member.phone ?? "").replace(/\D/g, "");
+        if (cleanPhone.length >= 10) {
+          email = `m${cleanPhone.slice(-10)}@maitrinidhi.local`;
+        } else {
+          email = `member.${member.id.slice(0, 6)}@maitrinidhi.local`;
+        }
+      }
+
+      // Check if user with this email already exists
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      if (existingUser) {
+        email = `admin.${member.id.slice(0, 6)}@maitrinidhi.local`;
+      }
+
+      const defaultPassword = "bhishi1234";
+      const passwordHash = await hashPassword(defaultPassword);
+
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email,
+            name: member.displayName,
+            role: "GROUP_ADMIN",
+            passwordHash,
+          },
+        });
+
+        await tx.groupMember.update({
+          where: { id: member.id },
+          data: { userId: user.id, email },
+        });
+
+        await writeAudit(tx, {
+          groupId: scope.groupId,
+          actorUserId: scope.userId,
+          action: "PROMOTE_ADMIN",
+          entityType: "GroupMember",
+          entityId: member.id,
+          newValue: { role: "GROUP_ADMIN", email },
+        });
+      });
+
+      refresh();
+      return ok(
+        `Promoted to Admin! Login created: ${email} (Password: ${defaultPassword})`
+      );
+    }
+
+    if (member.user.role === "SUPER_ADMIN") {
+      return { error: "Superadmin role cannot be changed from group settings." };
+    }
+
+    if (!makeAdmin) {
+      // Demoting. Check if this is the only remaining admin in the group.
+      const adminCount = await prisma.groupMember.count({
+        where: {
+          groupId: scope.groupId,
+          user: { role: "GROUP_ADMIN" },
+          status: "ACTIVE",
+        },
+      });
+      if (adminCount <= 1) {
+        return { error: "Cannot demote the only remaining admin of the group." };
+      }
+
+      await prisma.user.update({
+        where: { id: member.user.id },
+        data: { role: "MEMBER" },
+      });
+
+      refresh();
+      return ok("Admin role removed");
+    } else {
+      await prisma.user.update({
+        where: { id: member.user.id },
+        data: { role: "GROUP_ADMIN" },
+      });
+
+      refresh();
+      return ok("Member promoted to Admin");
+    }
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 /**
  * Undo a ledger posting.
  *
@@ -595,3 +706,26 @@ export async function reverseLedgerEntryAction(
     return failure(error);
   }
 }
+
+export async function disburseLoanApplicationAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const applicationId = text(formData, "applicationId");
+    if (!applicationId) return { error: "Application ID is missing" };
+
+    const result = await disburseApplicationLoan({
+      applicationId,
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+    });
+
+    refresh();
+    return ok(`Loan disbursed successfully (Receipt #${result.receiptNo})`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+

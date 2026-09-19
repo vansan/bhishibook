@@ -43,7 +43,7 @@ export function LoanRow({ loan, labels }: LoanRowProps) {
         <td className="px-4 py-3">
           <span className="font-medium">{loan.memberName}</span>
           {loan.isClosed ? (
-            <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
+            <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-[var(--primary)]">
               {labels.closed}
             </span>
           ) : loan.isOverdue ? (

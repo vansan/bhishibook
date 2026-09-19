@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import type { UserRole } from "@prisma/client";
 import { homePathFor, SELECTED_GROUP_COOKIE } from "@/lib/auth";
-import { verifyPassword } from "@/lib/password";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, readSessionCookie } from "@/lib/session";
 import { cookies } from "next/headers";
@@ -58,41 +58,119 @@ function recordFailure(key: string): void {
   entry.count += 1;
 }
 
-/** Same message for a bad email and a bad password, so the form cannot be used to discover who has an account. */
-const BAD_CREDENTIALS = "Email or password is incorrect";
+/** Same message for a bad identifier and a bad password, so the form cannot be used to discover who has an account. */
+const BAD_CREDENTIALS = "Email/Mobile or password is incorrect";
 
 async function signIn(formData: FormData, audience: Audience): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const rawIdentifier = String(
+    formData.get("email") ?? formData.get("identifier") ?? ""
+  ).trim();
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "");
 
-  if (!email || !password) {
-    return { error: "Enter both your email and password" };
+  if (!rawIdentifier || !password) {
+    return { error: "Enter both your email/mobile number and password" };
   }
-  if (tooManyAttempts(email)) {
+
+  const rateLimitKey = rawIdentifier.toLowerCase();
+  if (tooManyAttempts(rateLimitKey)) {
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      id: true,
-      name: true,
-      role: true,
-      isActive: true,
-      passwordHash: true,
-      memberships: {
-        where: { status: { not: "INACTIVE" } },
-        select: { id: true, groupId: true, group: { select: { status: true, name: true } } },
-        orderBy: { joinedAt: "asc" },
-        take: 1,
-      },
+  const selectUser = {
+    id: true,
+    name: true,
+    role: true,
+    isActive: true,
+    passwordHash: true,
+    memberships: {
+      where: { status: { not: "INACTIVE" as const } },
+      select: { id: true, groupId: true, group: { select: { status: true, name: true } } },
+      orderBy: { joinedAt: "asc" as const },
+      take: 1,
     },
-  });
+  };
+
+  let user: {
+    id: string;
+    name: string;
+    role: UserRole;
+    isActive: boolean;
+    passwordHash: string | null;
+    memberships: Array<{
+      id: string;
+      groupId: string;
+      group: { status: string; name: string };
+    }>;
+  } | null = null;
+
+  if (rawIdentifier.includes("@")) {
+    user = await prisma.user.findUnique({
+      where: { email: rawIdentifier.toLowerCase() },
+      select: selectUser,
+    });
+  } else {
+    // Look up by mobile number
+    const digits = rawIdentifier.replace(/\D/g, "");
+    if (digits.length >= 7) {
+      const lastDigits = digits.slice(-10);
+      const member = await prisma.groupMember.findFirst({
+        where: {
+          phone: { contains: lastDigits },
+          status: { not: "INACTIVE" },
+        },
+        include: {
+          user: {
+            select: selectUser,
+          },
+        },
+      });
+
+      if (member?.user) {
+        user = member.user;
+      } else if (member && !member.userId) {
+        // If member exists in group with this phone but has no user record yet,
+        // and provides the default password "bhishi1234", auto-provision account
+        if (password === "bhishi1234") {
+          const passwordHash = await hashPassword("bhishi1234");
+          const email = member.email || `m${lastDigits}@maitrinidhi.local`;
+
+          const created = await prisma.$transaction(async (tx) => {
+            const u = await tx.user.create({
+              data: {
+                email,
+                name: member.displayName,
+                role: "MEMBER",
+                passwordHash,
+              },
+            });
+            await tx.groupMember.update({
+              where: { id: member.id },
+              data: { userId: u.id, email },
+            });
+            return u;
+          });
+
+          user = await prisma.user.findUnique({
+            where: { id: created.id },
+            select: selectUser,
+          });
+        }
+      }
+    }
+
+    if (!user) {
+      // Fallback: try prefix or exact email match
+      user = await prisma.user.findFirst({
+        where: { email: { startsWith: rawIdentifier.toLowerCase() } },
+        select: selectUser,
+      });
+    }
+  }
 
   const passwordOk = await verifyPassword(password, user?.passwordHash);
   if (!user || !user.isActive || !passwordOk) {
-    recordFailure(email);
+    recordFailure(rateLimitKey);
     return { error: BAD_CREDENTIALS };
   }
 
@@ -119,7 +197,7 @@ async function signIn(formData: FormData, audience: Audience): Promise<LoginStat
     }
   }
 
-  attempts.delete(email);
+  attempts.delete(rateLimitKey);
 
   await createSession({
     userId: user.id,

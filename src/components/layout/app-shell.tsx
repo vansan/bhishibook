@@ -1,8 +1,5 @@
-import Link from "next/link";
-import { BookOpenText } from "lucide-react";
 import { LanguageToggle } from "@/components/layout/language-toggle";
-import { LogoutButton } from "@/components/layout/logout-button";
-import { Button } from "@/components/ui/button";
+import { NavHeader } from "@/components/layout/nav-header";
 import { getAuth } from "@/lib/auth";
 import { getMessages } from "@/lib/i18n";
 import { platform } from "@/lib/demo-data";
@@ -36,37 +33,22 @@ export async function AppShell({ children, groupName, showNav = true }: AppShell
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-[var(--line)] bg-white/90">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <Link className="flex min-w-0 items-center gap-3" href="/">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] text-white">
-              <BookOpenText size={22} />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-lg font-bold">{heading}</p>
-              <p className="text-xs font-medium text-[var(--muted)]">{t.app.poweredBy}</p>
-            </div>
-          </Link>
-
-          {showNav ? (
-            <nav className="flex flex-wrap items-center gap-2">
-              {links.map((link) => (
-                <Button href={link.href} key={link.href} variant="ghost">
-                  {link.label}
-                </Button>
-              ))}
-              <LanguageToggle />
-              {auth ? (
-                <LogoutButton label={t.nav.logout} name={auth.name} />
-              ) : (
-                <Button href="/login">{t.nav.login}</Button>
-              )}
-            </nav>
-          ) : (
-            <LanguageToggle />
-          )}
-        </div>
-      </header>
+      <NavHeader
+        auth={auth ? { role: auth.role, name: auth.name } : null}
+        heading={heading}
+        labels={{
+          profile: t.nav.profile,
+          login: t.nav.login,
+          logout: t.nav.logout,
+          installApp: t.nav.installApp,
+          menu: t.nav.menu,
+          close: t.nav.close,
+        }}
+        languageToggle={<LanguageToggle />}
+        links={links}
+        poweredBy={t.app.poweredBy}
+        showNav={showNav}
+      />
 
       <main className="flex-1">{children}</main>
 

@@ -3,21 +3,39 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { DashboardPage } from "@/components/layout/dashboard-page";
 import { requireMemberScope } from "@/lib/auth";
-import { getMessages } from "@/lib/i18n";
+import { getLocale, getMessages } from "@/lib/i18n";
+import { formatMemberName } from "@/lib/members";
 import { formatPaise } from "@/lib/money";
+import { prisma } from "@/lib/prisma";
 import { whatsappShareUrl } from "@/lib/receipt-text";
 import { getGroupOverview, getMemberPassbook, getMemberSummary } from "@/lib/repositories";
+import { getGroupLoanApplications } from "@/lib/services/loan-applications";
+import { ReceiptActions } from "@/app/group/receipts/receipt-actions";
 import { cn } from "@/lib/utils";
+import {
+  ApplyLoanModal,
+  GuarantorRequestsList,
+  MemberVotingList,
+  MyApplicationsList,
+} from "./loan-application-forms";
 
 export default async function MemberPage() {
   const scope = await requireMemberScope();
 
-  const [t, summary, overview, passbook] = await Promise.all([
-    getMessages(),
-    getMemberSummary(scope.groupId, scope.memberId),
-    getGroupOverview(scope.groupId),
-    getMemberPassbook(scope.groupId, scope.memberId),
-  ]);
+  const [t, locale, summary, overview, passbook, applications, allMembers] =
+    await Promise.all([
+      getMessages(),
+      getLocale(),
+      getMemberSummary(scope.groupId, scope.memberId),
+      getGroupOverview(scope.groupId),
+      getMemberPassbook(scope.groupId, scope.memberId),
+      getGroupLoanApplications(scope.groupId, scope.memberId),
+      prisma.groupMember.findMany({
+        where: { groupId: scope.groupId, status: "ACTIVE" },
+        orderBy: { displayName: "asc" },
+        select: { id: true, displayName: true, displayNameMr: true, phone: true },
+      }),
+    ]);
 
   if (!summary) notFound();
 
@@ -33,10 +51,50 @@ export default async function MemberPage() {
     `${t.member.fines} ${formatPaise(summary.finesOutstandingPaise, whole)}`,
   ].join(" · ");
 
+  const memberOptions = allMembers.map((m) => ({
+    id: m.id,
+    name: formatMemberName(m, locale),
+    phone: m.phone ?? "",
+  }));
+
+  const guarantorRequests = applications.filter(
+    (app) =>
+      app.currentUserGuarantorStatus !== null &&
+      app.currentUserGuarantorStatus !== undefined
+  );
+
+  const memberDisplayName = formatMemberName(summary, locale);
+
   return (
     <AppShell groupName={overview?.groupName}>
       <DashboardPage
-        eyebrow={summary.displayName}
+        actions={
+          <ApplyLoanModal
+            currentMemberId={scope.memberId}
+            labels={{
+              applyBtn: t.loans.apply,
+              modalTitle: t.loans.applyTitle,
+              amountLabel: t.loans.requestedAmount,
+              termLabel: t.loans.termMonths,
+              purposeLabel: t.loans.purpose,
+              selectJaminLabel: t.loans.selectJamin,
+              minJaminHint: t.loans.minJaminRequired,
+              submittingLabel: t.loans.submittingApplication,
+              close: t.common.close,
+            }}
+            members={memberOptions}
+          />
+        }
+        eyebrow={
+          <span className="inline-flex items-center gap-2">
+            <span>{memberDisplayName}</span>
+            {summary.isAdmin ? (
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-[var(--primary)]">
+                {t.common.adminBadge}
+              </span>
+            ) : null}
+          </span>
+        }
         stats={[
           {
             label: t.member.myShares,
@@ -64,6 +122,53 @@ export default async function MemberPage() {
         subtitle={t.member.subtitle}
         title={t.member.title}
       >
+        {/* Pending Guarantor (Jamin) Requests */}
+        <GuarantorRequestsList
+          labels={{
+            title: t.loans.guarantors,
+            from: t.common.member,
+            amount: t.common.amount,
+            purpose: t.common.notes,
+            accept: t.loans.acceptAsJamin,
+            decline: t.loans.declineJamin,
+            statusAccepted: t.common.paid,
+            statusDeclined: t.loans.rejectLoan,
+          }}
+          requests={guarantorRequests}
+        />
+
+        {/* My Loan Applications */}
+        <MyApplicationsList
+          applications={applications}
+          labels={{
+            title: t.loans.applications,
+            amount: t.common.amount,
+            date: t.common.date,
+            status: t.common.status,
+            jamin: t.loans.guarantors,
+            votes: t.loans.memberApproved,
+            pending: t.loans.awaitingApprovals,
+            ready: t.loans.readyForDisbursement,
+            disbursed: t.loans.disbursedOn,
+          }}
+        />
+
+        {/* Member Voting on Open Applications */}
+        <MemberVotingList
+          applications={applications}
+          labels={{
+            title: `${t.loans.applications} (${t.loans.approvalProgress})`,
+            applicant: t.common.member,
+            amount: t.common.amount,
+            jaminStatus: t.loans.jaminAccepted,
+            approvalStatus: t.loans.memberApproved,
+            approve: t.loans.approveLoan,
+            reject: t.loans.rejectLoan,
+            youApproved: t.loans.approveLoan,
+            youRejected: t.loans.rejectLoan,
+            notVoted: t.loans.awaitingApprovals,
+          }}
+        />
         <div className="rounded-lg border border-[var(--line)] bg-white p-5">
           <h2 className="text-base font-semibold">{t.member.myLoans}</h2>
           <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -132,7 +237,7 @@ export default async function MemberPage() {
                         className={cn(
                           "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
                           row.settled
-                            ? "bg-emerald-50 text-[var(--primary)]"
+                            ? "bg-emerald-50 text-emerald-700"
                             : "bg-amber-50 text-[var(--warn)]"
                         )}
                       >
@@ -181,14 +286,20 @@ export default async function MemberPage() {
                       {formatPaise(receipt.amountPaise, whole)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <a
-                        className="focus-ring rounded px-2 py-1 text-sm font-medium text-[var(--primary)] hover:underline"
-                        href={whatsappShareUrl(receipt.whatsappText ?? "")}
-                        rel="noopener noreferrer"
-                        target="_blank"
-                      >
-                        {t.receipts.shareWhatsapp}
-                      </a>
+                      <ReceiptActions
+                        copiedLabel={t.receipts.copied}
+                        copyLabel={t.receipts.copy}
+                        pdfLabel={t.ledger.downloadPdf}
+                        receiptId={receipt.id}
+                        recipientName={memberDisplayName}
+                        recipientPhone={summary.phone}
+                        shareLabel={t.receipts.shareWhatsapp}
+                        shareUrl={whatsappShareUrl(
+                          receipt.whatsappText ?? "",
+                          summary.phone
+                        )}
+                        text={receipt.whatsappText ?? ""}
+                      />
                     </td>
                   </tr>
                 ))}

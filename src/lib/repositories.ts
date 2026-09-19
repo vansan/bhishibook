@@ -191,6 +191,9 @@ export async function getGroupOverview(
 export type MemberSummary = {
   memberId: string;
   displayName: string;
+  displayNameMr?: string | null;
+  phone?: string | null;
+  isAdmin?: boolean;
   shareCount: number;
   monthlyHaftaPaise: Paise;
   corpusContributedPaise: Paise;
@@ -219,8 +222,13 @@ export async function getMemberSummary(
     select: {
       id: true,
       displayName: true,
+      displayNameMr: true,
+      phone: true,
       shareCount: true,
       monthlyHafta: true,
+      user: {
+        select: { role: true },
+      },
       group: {
         select: {
           cycles: {
@@ -275,6 +283,9 @@ export async function getMemberSummary(
   return {
     memberId: member.id,
     displayName: member.displayName,
+    displayNameMr: member.displayNameMr,
+    phone: member.phone,
+    isAdmin: member.user?.role === "GROUP_ADMIN" || member.user?.role === "SUPER_ADMIN",
     shareCount: member.shareCount,
     monthlyHaftaPaise: decimalToPaise(member.monthlyHafta),
     corpusContributedPaise,

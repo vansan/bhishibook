@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/action-state";
 
@@ -11,7 +11,8 @@ type ActionFormProps = {
   submitLabel: string;
   pendingLabel?: string;
   className?: string;
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "link" | "danger-link";
+  icon?: LucideIcon;
   /** Values the action needs that the admin does not type. */
   hidden?: Record<string, string>;
   compact?: boolean;
@@ -30,13 +31,18 @@ export function ActionForm({
   pendingLabel,
   className,
   variant = "primary",
+  icon: Icon,
   hidden,
   compact = false,
 }: ActionFormProps) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
+  const isLink = variant === "link" || variant === "danger-link";
 
   return (
-    <form action={formAction} className={cn("space-y-3", className)}>
+    <form
+      action={formAction}
+      className={cn(isLink ? "inline-flex m-0 p-0" : "space-y-3", className)}
+    >
       {hidden
         ? Object.entries(hidden).map(([key, value]) => (
             <input key={key} name={key} type="hidden" value={value} />
@@ -45,20 +51,36 @@ export function ActionForm({
 
       {children}
 
-      <div className={cn("flex flex-wrap items-center gap-3", compact && "gap-2")}>
+      <div
+        className={cn(
+          isLink
+            ? "inline-flex items-center m-0 p-0 gap-1.5"
+            : cn("flex flex-wrap items-center gap-3", compact && "gap-2")
+        )}
+      >
         <button
           className={cn(
-            "focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
-            variant === "primary" &&
-              "bg-[var(--primary)] text-white hover:bg-[var(--primary-strong)]",
-            variant === "secondary" &&
-              "border border-[var(--line)] bg-white text-[var(--foreground)] hover:border-[var(--primary)]",
-            variant === "danger" &&
-              "border border-red-200 bg-white text-red-700 hover:border-red-400"
+            isLink
+              ? cn(
+                  "focus-ring inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
+                  variant === "link" && "text-[var(--primary)] hover:underline",
+                  variant === "danger-link" && "text-red-600 hover:text-red-700 hover:underline"
+                )
+              : cn(
+                  "focus-ring inline-flex items-center justify-center gap-1.5 rounded-md font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                  compact ? "min-h-8 px-2.5 py-1 text-xs" : "min-h-11 px-4 py-2 text-sm",
+                  variant === "primary" &&
+                    "bg-[var(--primary)] text-white hover:bg-[var(--primary-strong)]",
+                  variant === "secondary" &&
+                    "border border-[var(--line)] bg-white text-[var(--foreground)] hover:border-[var(--primary)]",
+                  variant === "danger" &&
+                    "border border-red-200 bg-white text-red-700 hover:border-red-400"
+                )
           )}
           disabled={pending}
           type="submit"
         >
+          {Icon ? <Icon className="shrink-0" size={14} /> : null}
           {pending ? (pendingLabel ?? `${submitLabel}...`) : submitLabel}
         </button>
 

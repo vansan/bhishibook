@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,16 @@ export default async function HomePage() {
     <AppShell groupName={platform.name}>
       <section className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--accent)]">
-            {platform.name}
-          </p>
+          <div className="mb-4 flex items-center gap-3">
+            <Image
+              alt="BhishiBook Logo"
+              className="h-12 w-auto object-contain"
+              height={48}
+              priority
+              src="/logo.png"
+              width={192}
+            />
+          </div>
           <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-tight text-[var(--foreground)] sm:text-5xl">
             SaaS foundation for friend groups, classmates, and community bhishi.
           </h1>
@@ -37,16 +45,27 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-          <div className="border-b border-[var(--line)] pb-4">
-            <p className="text-sm text-[var(--muted)]">{platform.tagline}</p>
-            <h2 className="mt-1 text-2xl font-bold">{platform.defaultGroupName}</h2>
-            <p className="mt-1 text-sm font-medium text-[var(--primary)]">{t.app.poweredBy}</p>
+        <div className="rounded-xl border border-[var(--line)] bg-white p-6 shadow-xs">
+          <div className="flex items-center gap-4 border-b border-[var(--line)] pb-5">
+            <div className="size-16 shrink-0 overflow-hidden rounded-xl border border-[var(--line)] bg-slate-50 p-1">
+              <Image
+                alt="MaitriNidhi Logo"
+                className="size-full object-contain"
+                height={64}
+                src="/maitrinidhi.png"
+                width={64}
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">{platform.tagline}</p>
+              <h2 className="truncate text-xl font-bold text-[var(--foreground)] sm:text-2xl">{platform.defaultGroupName}</h2>
+              <p className="mt-0.5 text-xs font-medium text-[var(--muted)]">{t.app.poweredBy}</p>
+            </div>
           </div>
           <div className="mt-5 space-y-3">
             {highlights.map((item) => (
               <div className="flex gap-3" key={item}>
-                <CheckCircle2 className="mt-0.5 shrink-0 text-[var(--primary)]" size={18} />
+                <CheckCircle2 className="mt-0.5 shrink-0 text-[var(--accent)]" size={18} />
                 <p className="text-sm leading-6 text-[var(--muted)]">{item}</p>
               </div>
             ))}

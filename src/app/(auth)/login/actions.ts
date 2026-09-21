@@ -234,14 +234,32 @@ export async function loginTenant(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  return signIn(formData, "TENANT");
+  try {
+    return await signIn(formData, "TENANT");
+  } catch (err: unknown) {
+    console.error("loginTenant error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("Can't reach database") || msg.includes("P1001") || msg.includes("connect")) {
+      return {
+        error:
+          "Database connection failed. Please check DATABASE_URL in Vercel Environment Variables.",
+      };
+    }
+    return { error: `Sign-in error: ${msg}` };
+  }
 }
 
 export async function loginPlatform(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  return signIn(formData, "PLATFORM");
+  try {
+    return await signIn(formData, "PLATFORM");
+  } catch (err: unknown) {
+    console.error("loginPlatform error:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: `Sign-in error: ${msg}` };
+  }
 }
 
 export async function logout(): Promise<void> {

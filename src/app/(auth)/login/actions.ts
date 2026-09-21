@@ -226,17 +226,29 @@ async function signIn(formData: FormData, audience: Audience): Promise<LoginStat
   const destination =
     next.startsWith("/") && !next.startsWith("//") ? next : homePathFor(user.role);
 
-  // redirect() throws internally, so it must sit outside any try/catch.
-  redirect(destination);
+  return { destination };
+}
+
+function isRedirectError(err: unknown): boolean {
+  if (!err) return false;
+  if (typeof err === "object" && "digest" in err && typeof (err as { digest: unknown }).digest === "string") {
+    return (err as { digest: string }).digest.startsWith("NEXT_REDIRECT");
+  }
+  if (err instanceof Error && err.message === "NEXT_REDIRECT") {
+    return true;
+  }
+  return false;
 }
 
 export async function loginTenant(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
+  let result: LoginState;
   try {
-    return await signIn(formData, "TENANT");
+    result = await signIn(formData, "TENANT");
   } catch (err: unknown) {
+    if (isRedirectError(err)) throw err;
     console.error("loginTenant error:", err);
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("Can't reach database") || msg.includes("P1001") || msg.includes("connect")) {
@@ -247,19 +259,31 @@ export async function loginTenant(
     }
     return { error: `Sign-in error: ${msg}` };
   }
+
+  if (result.destination) {
+    redirect(result.destination);
+  }
+  return result;
 }
 
 export async function loginPlatform(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
+  let result: LoginState;
   try {
-    return await signIn(formData, "PLATFORM");
+    result = await signIn(formData, "PLATFORM");
   } catch (err: unknown) {
+    if (isRedirectError(err)) throw err;
     console.error("loginPlatform error:", err);
     const msg = err instanceof Error ? err.message : String(err);
     return { error: `Sign-in error: ${msg}` };
   }
+
+  if (result.destination) {
+    redirect(result.destination);
+  }
+  return result;
 }
 
 export async function logout(): Promise<void> {

@@ -40,6 +40,7 @@ export default async function GroupSettingsPage() {
         startsOn: true,
         endsOn: true,
         contributionDueDay: true,
+        shareAmount: true,
         monthlyInterestRate: true,
         maxRepaymentMonths: true,
         maxLoanCorpusMultiple: true,
@@ -152,11 +153,20 @@ export default async function GroupSettingsPage() {
               type="date"
             />
             <Field
-              defaultValue={cycle?.contributionDueDay ?? 10}
+              defaultValue={cycle?.contributionDueDay ?? 7}
               hint={t.settings.dueDayHint}
               label={t.settings.dueDay}
               min="1"
               name="contributionDueDay"
+              required
+              type="number"
+            />
+            <Field
+              defaultValue={cycle ? Number(cycle.shareAmount).toFixed(0) : "1000"}
+              hint={t.settings.shareAmountHint}
+              label={t.settings.shareAmount}
+              min="100"
+              name="shareAmount"
               required
               type="number"
             />

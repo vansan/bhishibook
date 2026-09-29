@@ -16,6 +16,17 @@ function getCleanDatabaseUrl(): string | undefined {
     .replace(/&channel_binding=require/g, "")
     .replace(/\?channel_binding=require&/g, "?")
     .replace(/\?channel_binding=require$/g, "");
+
+  // Ensure connection and pool timeouts are generous (30s) so Neon cold-start wakeups never error
+  if (!url.includes("connect_timeout=")) {
+    const separator = url.includes("?") ? "&" : "?";
+    url = `${url}${separator}connect_timeout=30`;
+  }
+  if (!url.includes("pool_timeout=")) {
+    const separator = url.includes("?") ? "&" : "?";
+    url = `${url}${separator}pool_timeout=30`;
+  }
+
   return url;
 }
 

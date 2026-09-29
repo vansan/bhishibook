@@ -1,16 +1,52 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Download, Smartphone, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: "accepted" | "dismissed";
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
+
+function subscribeStandalone(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const mql = window.matchMedia("(display-mode: standalone)");
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+function getStandaloneSnapshot() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+}
+
+function getStandaloneServerSnapshot() {
+  return false;
+}
+
+function subscribeIos() {
+  return () => {};
+}
+
+function getIosSnapshot() {
+  if (typeof window === "undefined") return false;
+  return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+}
+
+function getIosServerSnapshot() {
+  return false;
 }
 
 export function PwaInstallButton({
-  label = "Install App",
+  label = "अ‍ॅप इन्स्टॉल करा",
   className,
   variant = "ghost",
 }: {
@@ -18,32 +54,24 @@ export function PwaInstallButton({
   className?: string;
   variant?: "ghost" | "primary" | "banner";
 }) {
+  const isStandalone = useSyncExternalStore(
+    subscribeStandalone,
+    getStandaloneSnapshot,
+    getStandaloneServerSnapshot
+  );
+  const isIos = useSyncExternalStore(subscribeIos, getIosSnapshot, getIosServerSnapshot);
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [installed, setInstalled] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
-  const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
-    // Check if already installed / running in standalone mode
-    if (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true
-    ) {
-      setIsStandalone(true);
-      return;
-    }
-
-    const ua = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(ua);
-    setIsIos(isIosDevice);
-
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setPromptEvent(e as BeforeInstallPromptEvent);
     };
 
     const handleAppInstalled = () => {
-      setIsStandalone(true);
+      setInstalled(true);
       setPromptEvent(null);
     };
 
@@ -56,7 +84,7 @@ export function PwaInstallButton({
     };
   }, []);
 
-  if (isStandalone) return null;
+  if (isStandalone || installed) return null;
   // If not iOS and no install prompt caught, still show install button if mobile browser
   if (!promptEvent && !isIos) return null;
 

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, readSessionCookie } from "@/lib/session";
 import { cookies } from "next/headers";
 
-export type LoginState = { error?: string };
+export type LoginState = { error?: string; destination?: string };
 
 /**
  * BhishiBook has two front doors, because a group is a tenant:

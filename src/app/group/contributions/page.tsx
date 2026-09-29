@@ -55,9 +55,14 @@ export default async function ContributionsPage({ searchParams }: PageProps) {
         amountDue: true,
         amountPaid: true,
         paidOn: true,
-        member: { select: { id: true, displayName: true, displayNameMr: true } },
+        member: { select: { id: true, displayName: true, displayNameMr: true, phone: true } },
         fines: {
           select: { id: true, amount: true, amountPaid: true, waivedAmount: true, daysLate: true },
+        },
+        receipts: {
+          select: { whatsappText: true },
+          orderBy: { issuedAt: "desc" },
+          take: 1,
         },
       },
     }),
@@ -95,7 +100,15 @@ export default async function ContributionsPage({ searchParams }: PageProps) {
           </p>
         </div>
 
-        <ExportButton hint={t.ledger.exportHint} label={t.ledger.export} report="contributions" />
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            className="focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 transition"
+            href={`/group/contributions/sheet?month=${yearMonthKey(selected)}`}
+          >
+            📋 {t.contributions.meetingSheet} (१-७)
+          </Link>
+          <ExportButton hint={t.ledger.exportHint} label={t.ledger.export} report="contributions" />
+        </div>
 
         <div className="rounded-lg border border-[var(--line)] bg-white p-4">
           <ActionForm
@@ -242,6 +255,7 @@ export default async function ContributionsPage({ searchParams }: PageProps) {
                     row={{
                       id: row.id,
                       memberName: formatMemberName(row.member, locale),
+                      phone: row.member.phone,
                       dueLabel: formatPaise(due, whole),
                       paidLabel: formatPaise(paid, whole),
                       outstandingRupees: (outstanding / 100).toFixed(2),
@@ -250,6 +264,7 @@ export default async function ContributionsPage({ searchParams }: PageProps) {
                       daysLate: fine?.daysLate ?? 0,
                       state: paid >= due ? "paid" : paid > 0 ? "partial" : "unpaid",
                       locked: isLocked,
+                      whatsappText: row.receipts[0]?.whatsappText ?? null,
                     }}
                   />
                 );

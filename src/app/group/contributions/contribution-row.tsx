@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Check, IndianRupee, X } from "lucide-react";
+import { Check, IndianRupee, MessageCircle, X } from "lucide-react";
 import { ActionForm, Field } from "@/components/ui/action-form";
+import { whatsappShareUrl } from "@/lib/receipt-text";
 import { cn } from "@/lib/utils";
 import { recordContributionAction } from "../actions";
 
@@ -10,6 +11,7 @@ type ContributionRowProps = {
   row: {
     id: string;
     memberName: string;
+    phone?: string | null;
     dueLabel: string;
     paidLabel: string;
     /** Pre-filled into the amount box so the common case is one click. */
@@ -19,6 +21,7 @@ type ContributionRowProps = {
     daysLate: number;
     state: "paid" | "partial" | "unpaid";
     locked: boolean;
+    whatsappText?: string | null;
   };
   labels: {
     record: string;
@@ -71,20 +74,35 @@ export function ContributionRow({ row, labels }: ContributionRowProps) {
           </span>
         </td>
         <td className="px-4 py-3 text-right">
-          {row.locked ? (
-            <span className="text-xs text-[var(--muted)]">{labels.locked}</span>
-          ) : row.state === "paid" && row.fineRupees === "0.00" ? (
-            <Check className="ml-auto text-[var(--primary)]" size={16} />
-          ) : (
-            <button
-              className="focus-ring inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm font-medium text-[var(--primary)] hover:underline"
-              onClick={() => setOpen((value) => !value)}
-              type="button"
-            >
-              <IndianRupee size={14} />
-              {labels.record}
-            </button>
-          )}
+          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+            {row.phone && row.whatsappText ? (
+              <a
+                className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition"
+                href={whatsappShareUrl(row.whatsappText, row.phone)}
+                rel="noopener noreferrer"
+                target="_blank"
+                title="WhatsApp वर पावती पाठवा"
+              >
+                <MessageCircle className="text-emerald-600" size={14} />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </a>
+            ) : null}
+
+            {row.locked ? (
+              <span className="text-xs text-[var(--muted)]">{labels.locked}</span>
+            ) : row.state === "paid" && row.fineRupees === "0.00" ? (
+              <Check className="text-[var(--primary)]" size={16} />
+            ) : (
+              <button
+                className="focus-ring inline-flex items-center gap-1.5 rounded px-2 py-1 text-sm font-medium text-[var(--primary)] hover:underline"
+                onClick={() => setOpen((value) => !value)}
+                type="button"
+              >
+                <IndianRupee size={14} />
+                {labels.record}
+              </button>
+            )}
+          </div>
         </td>
       </tr>
 

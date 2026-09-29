@@ -606,3 +606,180 @@ export async function recordLoanRepayment(input: {
     return { repayment, allocation, receiptNo: receipt.receiptNo, whatsappText };
   });
 }
+
+export async function updateLoan(input: {
+  groupId: string;
+  loanId: string;
+  principalPaise: Paise;
+  interestRate?: string;
+  disbursedOn: Date;
+  notes?: string;
+  actorUserId?: string | null;
+}) {
+  if (input.principalPaise <= 0) throw new Error("Loan amount must be greater than zero");
+
+  return prisma.$transaction(async (tx) => {
+    const loan = await tx.loan.findFirstOrThrow({
+      where: { id: input.loanId, cycle: { groupId: input.groupId } },
+      include: {
+        cycle: { include: { group: true } },
+        member: true,
+        repayments: true,
+      },
+    });
+
+    const totalRepaidPaise = sumPaise(
+      loan.repayments.map((r) => decimalToPaise(r.principalAmount))
+    );
+    if (input.principalPaise < totalRepaidPaise) {
+      throw new Error(
+        `मुद्दल आधी परतफेड केलेल्या रकमेपेक्षा (₹${(totalRepaidPaise / 100).toLocaleString()}) कमी करता येणार नाही.`
+      );
+    }
+
+    const rate = input.interestRate ? Number(input.interestRate) : Number(loan.interestRate);
+    if (rate < 0 || rate > 100) throw new Error("Interest rate must be between 0 and 100%");
+
+    const dueOn = new Date(input.disbursedOn);
+    dueOn.setUTCMonth(dueOn.getUTCMonth() + loan.cycle.maxRepaymentMonths);
+
+    const updated = await tx.loan.update({
+      where: { id: loan.id },
+      data: {
+        principal: paiseToDecimalString(input.principalPaise),
+        interestRate: rate,
+        disbursedOn: input.disbursedOn,
+        dueOn,
+        notes: input.notes?.trim() || null,
+      },
+    });
+
+    // Update disbursement ledger entry
+    await tx.ledgerEntry.updateMany({
+      where: { referenceId: loan.id, referenceType: "Loan", entryType: "LOAN_DISBURSEMENT" },
+      data: {
+        amount: paiseToDecimalString(input.principalPaise),
+        entryDate: input.disbursedOn,
+      },
+    });
+
+    // Update disbursement receipt
+    const existingReceipt = await tx.receipt.findFirst({
+      where: { loanId: loan.id, receiptType: "LOAN" },
+      select: { receiptNo: true },
+    });
+
+    const whatsappText = buildReceiptText({
+      groupName: loan.cycle.group.name,
+      receiptNo: existingReceipt?.receiptNo ?? "REC-LOAN",
+      memberName: loan.member.displayNameMr || loan.member.displayName,
+      issuedAt: input.disbursedOn,
+      lines: [{ label: "Loan disbursed", amountPaise: input.principalPaise }],
+      totalPaise: input.principalPaise,
+      footer: `Interest ${rate.toFixed(2)}% per month. Principal due by ${dueOn.toISOString().slice(0, 10)}.\nPowered by BhishiBook`,
+    });
+
+    await tx.receipt.updateMany({
+      where: { loanId: loan.id, receiptType: "LOAN" },
+      data: {
+        amount: paiseToDecimalString(input.principalPaise),
+        issuedAt: input.disbursedOn,
+        whatsappText,
+      },
+    });
+
+    // Recalculate all unpaid interest dues for this loan
+    const newMonthlyInterestPaise = monthlyInterest({
+      principalPaise: input.principalPaise,
+      monthlyInterestRate: rate.toFixed(2),
+    });
+
+    await tx.interestDue.updateMany({
+      where: { loanId: loan.id, amountPaid: 0 },
+      data: {
+        amountDue: paiseToDecimalString(newMonthlyInterestPaise),
+      },
+    });
+
+    await writeAudit(tx, {
+      groupId: input.groupId,
+      actorUserId: input.actorUserId,
+      action: "UPDATE_LOAN",
+      entityType: "Loan",
+      entityId: loan.id,
+      oldValue: {
+        principal: decimalToPaise(loan.principal),
+        rate: loan.interestRate.toFixed(2),
+        disbursedOn: loan.disbursedOn.toISOString(),
+      },
+      newValue: {
+        principal: input.principalPaise,
+        rate: rate.toFixed(2),
+        disbursedOn: input.disbursedOn.toISOString(),
+      },
+    });
+
+    return updated;
+  });
+}
+
+export async function deleteLoan(input: {
+  groupId: string;
+  loanId: string;
+  actorUserId?: string | null;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const loan = await tx.loan.findFirstOrThrow({
+      where: { id: input.loanId, cycle: { groupId: input.groupId } },
+      include: {
+        repayments: true,
+        member: true,
+      },
+    });
+
+    if (loan.repayments.length > 0) {
+      throw new Error(
+        "या कर्जावर आधीच परतफेड जमा झालेली आहे. कर्ज हटवण्यासाठी प्रथम परतफेड तपासा/हटवा (Cannot delete loan with repayments)."
+      );
+    }
+
+    // 1. Delete unpaid interest dues
+    await tx.interestDue.deleteMany({ where: { loanId: loan.id } });
+
+    // 2. Delete attached fines
+    await tx.fine.deleteMany({ where: { loanId: loan.id } });
+
+    // 3. Delete attached receipts
+    await tx.receipt.deleteMany({ where: { loanId: loan.id } });
+
+    // 4. Delete disbursement ledger entry
+    await tx.ledgerEntry.deleteMany({
+      where: { referenceId: loan.id, referenceType: "Loan" },
+    });
+
+    // 5. Unlink loan application if any
+    await tx.loanApplication.updateMany({
+      where: { disbursedLoanId: loan.id },
+      data: { disbursedLoanId: null, status: "READY_FOR_DISBURSEMENT" },
+    });
+
+    // 6. Delete loan
+    await tx.loan.delete({ where: { id: loan.id } });
+
+    await writeAudit(tx, {
+      groupId: input.groupId,
+      actorUserId: input.actorUserId,
+      action: "DELETE_LOAN",
+      entityType: "Loan",
+      entityId: loan.id,
+      oldValue: {
+        member: loan.member.displayName,
+        principal: decimalToPaise(loan.principal),
+        disbursedOn: loan.disbursedOn.toISOString(),
+      },
+    });
+
+    return { success: true, memberName: loan.member.displayName };
+  });
+}
+

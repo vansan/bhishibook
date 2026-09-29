@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/action-state";
 import { requireGroupAdmin } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
-import { rupeesToPaise } from "@/lib/money";
+import { decimalToPaise, rupeesToPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import {
   generateContributionSchedule,
@@ -12,7 +12,13 @@ import {
   runFineAssessment,
   waiveFine,
 } from "@/lib/services/contributions";
-import { createLoan, generateInterestDues, recordLoanRepayment } from "@/lib/services/loans";
+import {
+  createLoan,
+  deleteLoan,
+  generateInterestDues,
+  recordLoanRepayment,
+  updateLoan,
+} from "@/lib/services/loans";
 import { reverseLedgerEntry, writeAudit } from "@/lib/services/ledger";
 import {
   addMember,
@@ -90,9 +96,12 @@ function refresh(): void {
     "/group/loans",
     "/group/fines",
     "/group/ledger",
+    "/group/distribution",
     "/member",
   ]) {
     revalidatePath(path);
+    revalidatePath(path, "page");
+    revalidatePath(path, "layout");
   }
 }
 
@@ -102,14 +111,24 @@ export async function addMemberAction(
 ): Promise<ActionState> {
   try {
     const scope = await requireGroupAdmin();
+    const cycle = await prisma.cycle.findFirst({
+      where: { groupId: scope.groupId, status: { in: ["ACTIVE", "DRAFT", "CLOSING"] } },
+      orderBy: { startsOn: "desc" },
+      select: { shareAmount: true },
+    });
+    const sharePricePaise = cycle?.shareAmount ? decimalToPaise(cycle.shareAmount) : 100000;
+    const shareCount = Math.max(1, Number(text(formData, "shareCount") || "1"));
+    const formHafta = money(formData, "monthlyHafta");
+    const monthlyHaftaPaise = formHafta > 0 ? formHafta : shareCount * sharePricePaise;
+
     const member = await addMember({
       groupId: scope.groupId,
       actorUserId: scope.userId,
       displayName: text(formData, "displayName"),
       phone: text(formData, "phone"),
       email: text(formData, "email"),
-      shareCount: Number(text(formData, "shareCount") || "1"),
-      monthlyHaftaPaise: money(formData, "monthlyHafta"),
+      shareCount,
+      monthlyHaftaPaise,
     });
     refresh();
     return ok(`${member.displayName} added`);
@@ -124,6 +143,16 @@ export async function updateMemberAction(
 ): Promise<ActionState> {
   try {
     const scope = await requireGroupAdmin();
+    const cycle = await prisma.cycle.findFirst({
+      where: { groupId: scope.groupId, status: { in: ["ACTIVE", "DRAFT", "CLOSING"] } },
+      orderBy: { startsOn: "desc" },
+      select: { shareAmount: true },
+    });
+    const sharePricePaise = cycle?.shareAmount ? decimalToPaise(cycle.shareAmount) : 100000;
+    const shareCount = Math.max(1, Number(text(formData, "shareCount") || "1"));
+    const formHafta = money(formData, "monthlyHafta");
+    const monthlyHaftaPaise = formHafta > 0 ? formHafta : shareCount * sharePricePaise;
+
     const member = await updateMember({
       groupId: scope.groupId,
       actorUserId: scope.userId,
@@ -131,9 +160,10 @@ export async function updateMemberAction(
       displayName: text(formData, "displayName"),
       phone: text(formData, "phone"),
       email: text(formData, "email"),
-      shareCount: Number(text(formData, "shareCount") || "1"),
-      monthlyHaftaPaise: money(formData, "monthlyHafta"),
+      shareCount,
+      monthlyHaftaPaise,
       status: text(formData, "status") === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+      syncOpenCycleContributions: formData.get("syncContributions") === "1",
     });
     refresh();
     return ok(`${member.displayName} updated`);
@@ -248,6 +278,46 @@ export async function createLoanAction(
     });
     refresh();
     return ok(`Loan created. Receipt ${result.receiptNo}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateLoanAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    await updateLoan({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      loanId: text(formData, "loanId"),
+      principalPaise: money(formData, "principal"),
+      interestRate: text(formData, "interestRate") || undefined,
+      disbursedOn: date(formData, "disbursedOn"),
+      notes: text(formData, "notes") || undefined,
+    });
+    refresh();
+    return ok("Loan updated successfully");
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function deleteLoanAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const scope = await requireGroupAdmin();
+    const result = await deleteLoan({
+      groupId: scope.groupId,
+      actorUserId: scope.userId,
+      loanId: text(formData, "loanId"),
+    });
+    refresh();
+    return ok(`Loan for ${result.memberName} deleted successfully`);
   } catch (error) {
     return failure(error);
   }
@@ -388,7 +458,8 @@ function cycleFromForm(formData: FormData) {
     name: text(formData, "name"),
     startsOn: date(formData, "startsOn"),
     endsOn: date(formData, "endsOn"),
-    contributionDueDay: Number(text(formData, "contributionDueDay") || "10"),
+    contributionDueDay: Number(text(formData, "contributionDueDay") || "7"),
+    shareAmount: text(formData, "shareAmount") || "1000",
     monthlyInterestRate: text(formData, "monthlyInterestRate") || "3",
     maxRepaymentMonths: Number(text(formData, "maxRepaymentMonths") || "6"),
     maxLoanCorpusMultiple: text(formData, "maxLoanCorpusMultiple") || "2",

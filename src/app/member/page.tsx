@@ -9,7 +9,7 @@ import { formatPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { whatsappShareUrl } from "@/lib/receipt-text";
 import { getGroupOverview, getMemberPassbook, getMemberSummary } from "@/lib/repositories";
-import { getGroupLoanApplications } from "@/lib/services/loan-applications";
+import { getGroupLoanApplications, getActiveGuaranteesCountMap } from "@/lib/services/loan-applications";
 import { ReceiptActions } from "@/app/group/receipts/receipt-actions";
 import { cn } from "@/lib/utils";
 import {
@@ -18,11 +18,12 @@ import {
   MemberVotingList,
   MyApplicationsList,
 } from "./loan-application-forms";
+import { PrintButton } from "@/app/group/contributions/sheet/print-button";
 
 export default async function MemberPage() {
   const scope = await requireMemberScope();
 
-  const [t, locale, summary, overview, passbook, applications, allMembers] =
+  const [t, locale, summary, overview, passbook, applications, allMembers, activeGuaranteesMap] =
     await Promise.all([
       getMessages(),
       getLocale(),
@@ -35,6 +36,7 @@ export default async function MemberPage() {
         orderBy: { displayName: "asc" },
         select: { id: true, displayName: true, displayNameMr: true, phone: true },
       }),
+      getActiveGuaranteesCountMap(scope.groupId),
     ]);
 
   if (!summary) notFound();
@@ -55,6 +57,7 @@ export default async function MemberPage() {
     id: m.id,
     name: formatMemberName(m, locale),
     phone: m.phone ?? "",
+    activeGuarantees: activeGuaranteesMap[m.id] ?? 0,
   }));
 
   const guarantorRequests = applications.filter(
@@ -190,8 +193,14 @@ export default async function MemberPage() {
 
         {passbook.months.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white">
+            <div className="flex items-center justify-between border-b border-[var(--line)] px-5 py-4">
+              <h2 className="text-base font-semibold">{t.loans.downloadPassbook} ({t.member.title})</h2>
+              <div className="print:hidden">
+                <PrintButton label={t.loans.downloadPassbook} />
+              </div>
+            </div>
             <table className="w-full min-w-[640px] text-sm">
-              <caption className="border-b border-[var(--line)] px-5 py-4 text-left text-base font-semibold">
+              <caption className="sr-only">
                 {t.member.title}
               </caption>
               <thead>

@@ -11,7 +11,17 @@ import { MemberRow } from "./member-row";
 
 export default async function MembersPage() {
   const scope = await requireGroupAdmin();
-  const [t, locale] = await Promise.all([getMessages(), getLocale()]);
+  const [t, locale, cycle] = await Promise.all([
+    getMessages(),
+    getLocale(),
+    prisma.cycle.findFirst({
+      where: { groupId: scope.groupId, status: { in: ["ACTIVE", "DRAFT", "CLOSING"] } },
+      orderBy: { startsOn: "desc" },
+      select: { shareAmount: true },
+    }),
+  ]);
+
+  const sharePrice = cycle?.shareAmount ? Number(cycle.shareAmount) : 1000;
 
   const members = await prisma.groupMember.findMany({
     where: { groupId: scope.groupId },
@@ -66,24 +76,17 @@ export default async function MembersPage() {
           pendingLabel={t.members.adding}
           submitLabel={t.members.addMember}
         >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label={t.members.name} name="displayName" required />
             <Field label={t.members.phone} name="phone" type="tel" />
             <Field
               defaultValue="1"
-              hint={t.members.sharesHint}
+              hint={`1 शेअर = ₹${sharePrice.toLocaleString()}`}
               label={t.members.shareCount}
               min="1"
               name="shareCount"
               required
               type="number"
-            />
-            <Field
-              defaultValue="1000"
-              hint={t.members.haftaHint}
-              label={t.members.monthlyHafta}
-              name="monthlyHafta"
-              required
             />
           </div>
         </ActionForm>
@@ -145,6 +148,8 @@ export default async function MembersPage() {
                   decisionNote: t.members.decisionNote,
                   recordDecision: t.members.recordDecision,
                   decisionOptions,
+                  syncContributions: t.members.syncContributions,
+                  sharePrice,
                 }}
                 member={{
                   id: member.id,

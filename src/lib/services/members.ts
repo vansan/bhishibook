@@ -65,12 +65,15 @@ export async function addMember(input: MemberInput & {
   });
 }
 
-export async function updateMember(input: MemberInput & {
+export type UpdateMemberInput = MemberInput & {
   groupId: string;
   memberId: string;
   status: MembershipStatus;
   actorUserId?: string | null;
-}) {
+  syncOpenCycleContributions?: boolean;
+};
+
+export async function updateMember(input: UpdateMemberInput) {
   validate(input);
 
   return prisma.$transaction(async (tx) => {
@@ -78,6 +81,7 @@ export async function updateMember(input: MemberInput & {
       where: { id: input.memberId, groupId: input.groupId },
       select: {
         displayName: true,
+        displayNameMr: true,
         phone: true,
         email: true,
         shareCount: true,
@@ -97,6 +101,64 @@ export async function updateMember(input: MemberInput & {
         status: input.status,
       },
     });
+
+    const newHaftaStr = paiseToDecimalString(input.monthlyHaftaPaise);
+    const haftaChanged = before.monthlyHafta.toFixed(2) !== newHaftaStr;
+
+    if (haftaChanged) {
+      if (input.syncOpenCycleContributions) {
+        // Sync all contributions for this member in open/active cycles
+        const contribs = await tx.contribution.findMany({
+          where: {
+            memberId: input.memberId,
+            cycle: { groupId: input.groupId, status: { in: ["ACTIVE", "DRAFT"] } },
+          },
+          select: { id: true, amountDue: true, amountPaid: true },
+        });
+
+        for (const c of contribs) {
+          const wasFullyPaid = c.amountPaid.equals(c.amountDue);
+          const newPaidStr = wasFullyPaid ? newHaftaStr : c.amountPaid.toFixed(2);
+
+          await tx.contribution.update({
+            where: { id: c.id },
+            data: {
+              amountDue: newHaftaStr,
+              amountPaid: newPaidStr,
+            },
+          });
+
+          if (wasFullyPaid) {
+            await tx.receipt.updateMany({
+              where: { contributionId: c.id },
+              data: {
+                amount: newHaftaStr,
+                whatsappText: `पावती: ${member.displayNameMr || member.displayName} यांच्याकडून ₹${Math.round(input.monthlyHaftaPaise / 100)} हप्ता जमा.`,
+              },
+            });
+
+            await tx.ledgerEntry.updateMany({
+              where: { referenceId: c.id, referenceType: "CONTRIBUTION" },
+              data: {
+                amount: newHaftaStr,
+              },
+            });
+          }
+        }
+      } else {
+        // Automatically sync unpaid contributions in open/active cycles
+        await tx.contribution.updateMany({
+          where: {
+            memberId: input.memberId,
+            amountPaid: 0,
+            cycle: { groupId: input.groupId, status: { in: ["ACTIVE", "DRAFT"] } },
+          },
+          data: {
+            amountDue: newHaftaStr,
+          },
+        });
+      }
+    }
 
     await writeAudit(tx, {
       groupId: input.groupId,

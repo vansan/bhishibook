@@ -47,7 +47,7 @@ export function NavHeader({
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur-md print:hidden">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
         {/* Brand Logo & Title */}
         <Link className="flex min-w-0 items-center gap-2.5 sm:gap-3" href="/" onClick={closeMenu}>

@@ -26,6 +26,7 @@ type MemberOption = {
   id: string;
   name: string;
   phone: string;
+  activeGuarantees?: number;
 };
 
 export function ApplyLoanModal({
@@ -123,7 +124,7 @@ export function ApplyLoanModal({
                   {labels.minJaminHint} (
                   <span
                     className={
-                      selectedGuarantors.length >= 2
+                      selectedGuarantors.length >= 3
                         ? "font-semibold text-emerald-700"
                         : "font-semibold text-[var(--warn)]"
                     }
@@ -136,25 +137,42 @@ export function ApplyLoanModal({
                 <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-[var(--line)] p-2">
                   {eligibleGuarantors.map((member) => {
                     const isChecked = selectedGuarantors.includes(member.id);
+                    const isMaxReached = (member.activeGuarantees ?? 0) >= 2;
                     return (
                       <label
                         className={cn(
-                          "flex cursor-pointer items-center justify-between rounded-md p-2 text-xs transition",
-                          isChecked
+                          "flex items-center justify-between rounded-md p-2 text-xs transition",
+                          isMaxReached
+                            ? "cursor-not-allowed opacity-50 bg-gray-50 text-[var(--muted)]"
+                            : "cursor-pointer",
+                          isChecked && !isMaxReached
                             ? "bg-indigo-50 font-medium text-[var(--primary)]"
-                            : "hover:bg-slate-50 text-[var(--foreground)]"
+                            : !isMaxReached && "hover:bg-slate-50 text-[var(--foreground)]"
                         )}
                         key={member.id}
                       >
                         <div className="flex items-center gap-2">
                           <input
                             checked={isChecked}
+                            disabled={isMaxReached}
                             name="guarantorMemberIds"
-                            onChange={() => toggleGuarantor(member.id)}
+                            onChange={() => !isMaxReached && toggleGuarantor(member.id)}
                             type="checkbox"
                             value={member.id}
                           />
                           <span>{member.name}</span>
+                          <span
+                            className={cn(
+                              "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                              isMaxReached
+                                ? "bg-red-100 text-red-700"
+                                : (member.activeGuarantees ?? 0) === 1
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-emerald-100 text-emerald-700"
+                            )}
+                          >
+                            {isMaxReached ? "मर्यादा २/२" : `जामीन: ${member.activeGuarantees ?? 0}/२`}
+                          </span>
                         </div>
                         {member.phone ? (
                           <span className="text-[var(--muted)]">{member.phone}</span>
@@ -225,7 +243,7 @@ export function GuarantorRequestsList({
 
               {req.purpose ? (
                 <p className="mt-2 text-xs text-[var(--muted)] italic">
-                  "{req.purpose}"
+                  &ldquo;{req.purpose}&rdquo;
                 </p>
               ) : null}
 

@@ -45,3 +45,14 @@ select {
   outline: 3px solid rgb(10 58 107 / 0.28);
   outline-offset: 3px;
 }
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+}
+

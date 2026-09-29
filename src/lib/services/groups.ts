@@ -195,6 +195,7 @@ export type CycleInput = {
   startsOn: Date;
   endsOn: Date;
   contributionDueDay: number;
+  shareAmount?: string;
   monthlyInterestRate: string;
   maxRepaymentMonths: number;
   maxLoanCorpusMultiple: string;
@@ -248,6 +249,7 @@ export async function createCycle(input: CycleInput & {
         endsOn: input.endsOn,
         status: "ACTIVE",
         contributionDueDay: input.contributionDueDay,
+        shareAmount: input.shareAmount ?? "1000.00",
         monthlyInterestRate: input.monthlyInterestRate,
         maxRepaymentMonths: input.maxRepaymentMonths,
         maxLoanCorpusMultiple: input.maxLoanCorpusMultiple,
@@ -288,6 +290,7 @@ export async function updateCycle(input: CycleInput & {
         name: true,
         status: true,
         contributionDueDay: true,
+        shareAmount: true,
         monthlyInterestRate: true,
         maxRepaymentMonths: true,
         maxLoanCorpusMultiple: true,
@@ -307,6 +310,7 @@ export async function updateCycle(input: CycleInput & {
         startsOn: input.startsOn,
         endsOn: input.endsOn,
         contributionDueDay: input.contributionDueDay,
+        shareAmount: input.shareAmount ?? before.shareAmount,
         monthlyInterestRate: input.monthlyInterestRate,
         maxRepaymentMonths: input.maxRepaymentMonths,
         maxLoanCorpusMultiple: input.maxLoanCorpusMultiple,

@@ -10,3 +10,4 @@ dist
 .codex_doc_render
 .tmp
 .neon
+.claude

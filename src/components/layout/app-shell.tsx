@@ -52,7 +52,7 @@ export async function AppShell({ children, groupName, showNav = true }: AppShell
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t border-[var(--line)] bg-white">
+      <footer className="border-t border-[var(--line)] bg-white print:hidden">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-sm text-[var(--muted)] sm:px-6 lg:px-8">
           <span>{t.app.poweredBy}</span>
           <span>{t.app.freeSoftware}</span>

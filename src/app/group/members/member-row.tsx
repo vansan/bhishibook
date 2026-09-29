@@ -56,6 +56,8 @@ type MemberRowProps = {
     decisionNote: string;
     recordDecision: string;
     decisionOptions: Array<{ value: string; label: string }>;
+    syncContributions?: string;
+    sharePrice?: number;
   };
 };
 
@@ -159,12 +161,12 @@ export function MemberRow({ member, labels }: MemberRowProps) {
                     required
                     type="number"
                   />
-                  <Field
-                    defaultValue={member.monthlyHafta}
-                    label={labels.hafta}
-                    name="monthlyHafta"
-                    required
-                  />
+                  <div className="flex flex-col justify-center">
+                    <span className="text-xs font-medium text-[var(--muted)]">{labels.hafta}</span>
+                    <span className="mt-1 inline-flex items-center rounded-md border border-[var(--line)] bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">
+                      ₹{((labels.sharePrice ?? 1000) * member.shareCount).toLocaleString()}
+                    </span>
+                  </div>
                   <SelectField
                     defaultValue={member.status}
                     label={labels.status}
@@ -174,6 +176,20 @@ export function MemberRow({ member, labels }: MemberRowProps) {
                       { value: "INACTIVE", label: labels.inactive },
                     ]}
                   />
+                  {labels.syncContributions ? (
+                    <div className="flex items-center sm:col-span-2 lg:col-span-5 pt-1">
+                      <label className="flex items-center gap-2 text-xs font-medium text-[var(--muted)] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          name="syncContributions"
+                          value="1"
+                          defaultChecked
+                          className="h-4 w-4 rounded border-[var(--line)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                        />
+                        <span>{labels.syncContributions}</span>
+                      </label>
+                    </div>
+                  ) : null}
                 </div>
               </ActionForm>
             ) : null}

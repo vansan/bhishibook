@@ -12,7 +12,7 @@ export default async function GroupPage() {
 
   if (!overview) notFound();
 
-  const dueDay = overview.cycle?.contributionDueDay ?? 10;
+  const dueDay = overview.cycle?.contributionDueDay ?? 7;
   const cycle = overview.cycle;
   const whole = { whole: true } as const;
 
@@ -79,6 +79,14 @@ export default async function GroupPage() {
             <Rule
               label={t.group.availableToLend}
               value={formatPaise(overview.availableFundsPaise, whole)}
+            />
+            <Rule
+              label={t.loans.totalEarnings}
+              value={formatPaise(overview.totalEarningsPaise, whole)}
+            />
+            <Rule
+              label={t.loans.estimatedDividend}
+              value={`${formatPaise(overview.dividendPerSharePaise, whole)} ${t.distribution.perShare}`}
             />
           </dl>
         ) : (

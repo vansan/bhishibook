@@ -44,7 +44,7 @@ export type LoanApplicationItem = {
   guarantors: ApplicationGuarantorSummary[];
   acceptedGuarantorsCount: number;
   totalGuarantorsCount: number;
-  hasMinGuarantors: boolean; // >= 2 accepted
+  hasMinGuarantors: boolean; // >= 3 accepted
   votes: ApplicationVoteSummary[];
   approvedVotesCount: number;
   rejectedVotesCount: number;
@@ -59,10 +59,36 @@ export type LoanApplicationItem = {
   isCurrentUserApplicant: boolean;
 };
 
+export async function getActiveGuaranteesCountMap(groupId: string): Promise<Record<string, number>> {
+  const activeGuarantees = await prisma.loanGuarantor.findMany({
+    where: {
+      status: { in: ["ACCEPTED", "PENDING"] },
+      application: {
+        cycle: { groupId },
+        OR: [
+          { status: { in: ["PENDING_APPROVAL", "READY_FOR_DISBURSEMENT"] } },
+          {
+            status: "DISBURSED",
+            disbursedLoan: { status: "ACTIVE" },
+          },
+        ],
+      },
+    },
+    select: { memberId: true },
+  });
+
+  const counts: Record<string, number> = {};
+  for (const g of activeGuarantees) {
+    counts[g.memberId] = (counts[g.memberId] ?? 0) + 1;
+  }
+  return counts;
+}
+
 /**
  * Submit a new loan application.
  * Rules:
- * - Minimum 2 guarantors (Jamin) are mandatory.
+ * - Minimum 3 guarantors (Jamin) are mandatory.
+ * - Each member can be a guarantor for a maximum of 2 active loans.
  * - Applicant cannot select themselves as guarantor.
  * - Guarantor IDs must be unique and from the active group members.
  */
@@ -80,8 +106,8 @@ export async function createLoanApplication(input: {
   }
 
   const uniqueGuarantors = Array.from(new Set(input.guarantorMemberIds.filter(Boolean)));
-  if (uniqueGuarantors.length < 2) {
-    throw new Error("Minimum 2 Jamin (guarantors) are mandatory.");
+  if (uniqueGuarantors.length < 3) {
+    throw new Error("किमान ३ जामीनदार (Guarantors) निवडणे बंधनकारक आहे / Minimum 3 Jamin (guarantors) are mandatory.");
   }
 
   if (uniqueGuarantors.includes(input.applicantId)) {
@@ -114,8 +140,16 @@ export async function createLoanApplication(input: {
     select: { id: true },
   });
 
-  if (validGuarantors.length < 2) {
-    throw new Error("At least 2 active members from this group must be selected as guarantors.");
+  if (validGuarantors.length < 3) {
+    throw new Error("किमान ३ सक्रिय सभासद जामीनदार म्हणून निवडणे आवश्यक आहे / At least 3 active members must be selected as guarantors.");
+  }
+
+  // Verify each member is guarantor for max 2 active loans
+  const activeCounts = await getActiveGuaranteesCountMap(input.groupId);
+  for (const g of validGuarantors) {
+    if ((activeCounts[g.id] ?? 0) >= 2) {
+      throw new Error("एका सभासदाला जास्तीत जास्त २ कर्जांना जामीन राहता येते. निवडलेल्या जामीनदाराची मर्यादा संपली आहे (Max 2 active loans per guarantor).");
+    }
   }
 
   return prisma.$transaction(async (tx) => {
@@ -277,7 +311,7 @@ export async function getGroupLoanApplications(
     const approvedVotes = app.votes.filter((v) => v.decision === "APPROVE");
     const rejectedVotes = app.votes.filter((v) => v.decision === "REJECT");
 
-    const hasMinGuarantors = acceptedGuarantors.length >= 2;
+    const hasMinGuarantors = acceptedGuarantors.length >= 3;
     const hasMinApprovals = approvedVotes.length >= requiredVotes;
     const hasSufficientFunds = availableTreasury >= requestedPaise;
 

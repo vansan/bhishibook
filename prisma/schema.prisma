@@ -166,7 +166,8 @@ model Cycle {
   startsOn              DateTime
   endsOn                DateTime
   status                CycleStatus         @default(DRAFT)
-  contributionDueDay    Int                 @default(10)
+  contributionDueDay    Int                 @default(7)
+  shareAmount           Decimal             @default(1000.00) @db.Decimal(12, 2)
   monthlyInterestRate   Decimal             @default(3.00) @db.Decimal(5, 2)
   maxRepaymentMonths    Int                 @default(6)
   maxLoanCorpusMultiple Decimal             @default(2.00) @db.Decimal(5, 2)

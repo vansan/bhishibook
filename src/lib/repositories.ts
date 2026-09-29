@@ -60,6 +60,8 @@ export type GroupOverview = {
   finesOutstandingPaise: Paise;
   activeLoanCount: number;
   availableFundsPaise: Paise;
+  totalEarningsPaise: Paise;
+  dividendPerSharePaise: Paise;
   cycle: {
     id: string;
     name: string;
@@ -172,6 +174,14 @@ export async function getGroupOverview(
       corpusCollectedPaise + interestCollectedPaise + finesPaidPaise - outstandingPrincipalPaise,
       0
     ),
+    totalEarningsPaise: interestCollectedPaise + finesPaidPaise,
+    dividendPerSharePaise:
+      group.members.reduce((total, member) => total + member.shareCount, 0) > 0
+        ? Math.floor(
+            (interestCollectedPaise + finesPaidPaise) /
+              group.members.reduce((total, member) => total + member.shareCount, 0)
+          )
+        : 0,
     cycle: cycle
       ? {
           id: cycle.id,

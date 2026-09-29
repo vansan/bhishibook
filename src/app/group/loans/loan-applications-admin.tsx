@@ -107,7 +107,7 @@ export function LoanApplicationsAdmin({
                 </p>
                 {app.purpose ? (
                   <p className="mt-1 text-xs italic text-[var(--muted)]">
-                    Note: "{app.purpose}"
+                    Note: &ldquo;{app.purpose}&rdquo;
                   </p>
                 ) : null}
               </div>

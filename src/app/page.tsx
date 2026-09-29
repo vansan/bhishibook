@@ -20,6 +20,7 @@ export default async function HomePage() {
               height={48}
               priority
               src="/logo.png"
+              style={{ width: "auto" }}
               width={192}
             />
           </div>

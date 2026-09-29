@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { Download, Smartphone, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -63,8 +64,12 @@ export function PwaInstallButton({
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
+  const [showAndroidGuide, setShowAndroidGuide] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setPromptEvent(e as BeforeInstallPromptEvent);
@@ -85,8 +90,6 @@ export function PwaInstallButton({
   }, []);
 
   if (isStandalone || installed) return null;
-
-  const [showAndroidGuide, setShowAndroidGuide] = useState(false);
 
   const handleInstallClick = async () => {
     if (promptEvent) {
@@ -122,81 +125,133 @@ export function PwaInstallButton({
         <span className="shrink-0">{label}</span>
       </button>
 
-      {showAndroidGuide ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-xs sm:items-center">
-          <div className="w-full max-w-sm rounded-xl border border-[var(--line)] bg-white p-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-              <div className="flex items-center gap-2 font-bold text-[var(--foreground)]">
-                <Smartphone className="text-[var(--primary)]" size={20} />
-                <span>Android वर इन्स्टॉल करा</span>
-              </div>
-              <button
-                className="rounded p-1 text-[var(--muted)] hover:bg-slate-100"
-                onClick={() => setShowAndroidGuide(false)}
-                type="button"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="mt-4 space-y-3 text-sm text-[var(--foreground)]">
-              <p>
-                1. Chrome ब्राऊझरच्या वरच्या उजव्या कोपऱ्यातील <strong>३ ठिपक्यांवर (⋮)</strong> टॅप करा.
-              </p>
-              <p>
-                2. खालील पर्यायांमधून <strong>&ldquo;Install app&rdquo;</strong> किंवा <strong>&ldquo;Add to Home screen&rdquo;</strong> निवडा.
-              </p>
-              <p>3. आता BhishiBook चे ॲप तुमच्या मोबाईलच्या होम स्क्रीनवर तयार होईल!</p>
-            </div>
-            <button
-              className="mt-5 w-full rounded-md bg-[var(--primary)] py-2 text-sm font-semibold !text-white text-white"
-              onClick={() => setShowAndroidGuide(false)}
-              style={{ color: "#ffffff" }}
-              type="button"
+      {showAndroidGuide && mounted
+        ? createPortal(
+            <div
+              aria-modal="true"
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setShowAndroidGuide(false);
+              }}
+              role="dialog"
             >
-              समजले (Got it)
-            </button>
-          </div>
-        </div>
-      ) : null}
+              <div className="w-full max-w-sm rounded-2xl border border-[var(--line)] bg-white p-5 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                  <div className="flex items-center gap-2 font-bold text-[var(--foreground)]">
+                    <Smartphone className="text-[var(--primary)]" size={20} />
+                    <span>Android वर इन्स्टॉल करा</span>
+                  </div>
+                  <button
+                    aria-label="Close"
+                    className="rounded-lg p-1 text-[var(--muted)] hover:bg-slate-100"
+                    onClick={() => setShowAndroidGuide(false)}
+                    type="button"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="mt-4 space-y-3 text-sm text-[var(--foreground)]">
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-[var(--primary)]">
+                      1
+                    </span>
+                    <p>
+                      Chrome ब्राऊझरच्या वरच्या उजव्या कोपऱ्यातील <strong>३ ठिपक्यांवर (⋮)</strong> टॅप करा.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-[var(--primary)]">
+                      2
+                    </span>
+                    <p>
+                      खालील पर्यायांमधून <strong>&ldquo;Install app&rdquo;</strong> किंवा <strong>&ldquo;Add to Home screen&rdquo;</strong> निवडा.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-[var(--primary)]">
+                      3
+                    </span>
+                    <p>आता <strong>BhishiBook</strong> चे ॲप तुमच्या मोबाईलच्या होम स्क्रीनवर तयार होईल!</p>
+                  </div>
+                </div>
+                <button
+                  className="mt-5 w-full rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold !text-white text-white shadow-sm"
+                  onClick={() => setShowAndroidGuide(false)}
+                  style={{ color: "#ffffff" }}
+                  type="button"
+                >
+                  समजले (Got it)
+                </button>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
-      {showIosGuide ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-xs sm:items-center">
-          <div className="w-full max-w-sm rounded-xl border border-[var(--line)] bg-white p-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
-              <div className="flex items-center gap-2 font-bold text-[var(--foreground)]">
-                <Smartphone className="text-[var(--primary)]" size={20} />
-                <span>iPhone / iPad वर इन्स्टॉल करा</span>
-              </div>
-              <button
-                className="rounded p-1 text-[var(--muted)] hover:bg-slate-100"
-                onClick={() => setShowIosGuide(false)}
-                type="button"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="mt-4 space-y-3 text-sm text-[var(--foreground)]">
-              <p>
-                1. Safari मध्ये खालील <strong>Share</strong> बटणावर (
-                <span className="inline-block rounded bg-slate-100 px-1 font-mono">⎋</span>) टॅप करा.
-              </p>
-              <p>
-                2. खाली स्क्रोल करून <strong>&ldquo;Add to Home Screen&rdquo;</strong> (
-                <span className="inline-block rounded bg-slate-100 px-1 font-mono">⊞</span>) निवडा.
-              </p>
-              <p>3. आता BhishiBook तुमच्या मोबाईलच्या होम स्क्रीनवरून थेट अ‍ॅपप्रमाणे उघडू शकता!</p>
-            </div>
-            <button
-              className="mt-5 w-full rounded-md bg-[var(--primary)] py-2 text-sm font-semibold !text-white text-white"
-              onClick={() => setShowIosGuide(false)}
-              style={{ color: "#ffffff" }}
-              type="button"
+      {showIosGuide && mounted
+        ? createPortal(
+            <div
+              aria-modal="true"
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setShowIosGuide(false);
+              }}
+              role="dialog"
             >
-              समजले (Got it)
-            </button>
-          </div>
-        </div>
-      ) : null}
+              <div className="w-full max-w-sm rounded-2xl border border-[var(--line)] bg-white p-5 shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                  <div className="flex items-center gap-2 font-bold text-[var(--foreground)]">
+                    <Smartphone className="text-[var(--primary)]" size={20} />
+                    <span>iPhone / iPad वर इन्स्टॉल करा</span>
+                  </div>
+                  <button
+                    aria-label="Close"
+                    className="rounded-lg p-1 text-[var(--muted)] hover:bg-slate-100"
+                    onClick={() => setShowIosGuide(false)}
+                    type="button"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="mt-4 space-y-3 text-sm text-[var(--foreground)]">
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-[var(--primary)]">
+                      1
+                    </span>
+                    <p>
+                      Safari मध्ये खालील <strong>Share</strong> बटणावर (
+                      <span className="inline-block rounded bg-slate-100 px-1 font-mono">⎋</span>) टॅप करा.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-[var(--primary)]">
+                      2
+                    </span>
+                    <p>
+                      खाली स्क्रोल करून <strong>&ldquo;Add to Home Screen&rdquo;</strong> (
+                      <span className="inline-block rounded bg-slate-100 px-1 font-mono">⊞</span>) निवडा.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-[var(--primary)]">
+                      3
+                    </span>
+                    <p>आता <strong>BhishiBook</strong> तुमच्या मोबाईलच्या होम स्क्रीनवरून थेट अ‍ॅपप्रमाणे उघडू शकता!</p>
+                  </div>
+                </div>
+                <button
+                  className="mt-5 w-full rounded-xl bg-[var(--primary)] py-2.5 text-sm font-semibold !text-white text-white shadow-sm"
+                  onClick={() => setShowIosGuide(false)}
+                  style={{ color: "#ffffff" }}
+                  type="button"
+                >
+                  समजले (Got it)
+                </button>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }

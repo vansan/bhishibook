@@ -26,7 +26,7 @@ export function LanguageToggle() {
       <Languages size={14} className="mx-1 text-[var(--muted)] hidden sm:inline-block" />
       <button
         className={cn(
-          "focus-ring rounded px-1.5 py-1 transition",
+          "focus-ring min-w-[28px] rounded px-2 py-1 text-center transition",
           currentLocale === "en"
             ? "bg-[var(--primary)] !text-white text-white"
             : "text-[var(--foreground)] hover:bg-slate-100"
@@ -39,7 +39,7 @@ export function LanguageToggle() {
       </button>
       <button
         className={cn(
-          "focus-ring rounded px-1.5 py-1 transition",
+          "focus-ring min-w-[28px] rounded px-2 py-1 text-center transition",
           currentLocale === "mr"
             ? "bg-[var(--primary)] !text-white text-white"
             : "text-[var(--foreground)] hover:bg-slate-100"

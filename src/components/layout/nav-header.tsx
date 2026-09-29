@@ -49,7 +49,7 @@ export function NavHeader({
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur-md print:hidden">
+    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white print:hidden">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
         {/* Brand Logo & Title */}
         <Link className="flex min-w-0 items-center gap-2 sm:gap-3" href="/" onClick={closeMenu}>
@@ -125,9 +125,9 @@ export function NavHeader({
             </nav>
 
             {/* Mobile Header Controls: Install Button + Language Toggle + Hamburger Button */}
-            <div className="flex shrink-0 items-center gap-1.5 md:hidden">
+            <div className="flex shrink-0 items-center gap-2 md:hidden">
               <PwaInstallButton
-                className="h-8 shrink-0 px-2 py-1 text-xs font-bold whitespace-nowrap"
+                className="h-8 shrink-0 px-2.5 py-1 text-xs font-bold whitespace-nowrap"
                 label="Install"
                 variant="banner"
               />
@@ -144,9 +144,9 @@ export function NavHeader({
             </div>
           </>
         ) : (
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-2">
             <PwaInstallButton
-              className="h-8 shrink-0 px-2 py-1 text-xs font-bold whitespace-nowrap"
+              className="h-8 shrink-0 px-2.5 py-1 text-xs font-bold whitespace-nowrap"
               label="Install"
               variant="banner"
             />

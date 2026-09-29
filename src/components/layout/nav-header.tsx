@@ -19,6 +19,7 @@ type NavHeaderProps = {
   heading: string;
   poweredBy: string;
   links: NavLink[];
+  groupTabs?: NavLink[];
   auth: { role: string; name: string } | null;
   labels: {
     profile: string;
@@ -36,6 +37,7 @@ export function NavHeader({
   heading,
   poweredBy,
   links,
+  groupTabs,
   auth,
   labels,
   showNav,
@@ -48,24 +50,26 @@ export function NavHeader({
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95 backdrop-blur-md print:hidden">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
         {/* Brand Logo & Title */}
-        <Link className="flex min-w-0 items-center gap-2.5 sm:gap-3" href="/" onClick={closeMenu}>
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--line)] bg-white p-1 shadow-xs sm:size-11">
+        <Link className="flex min-w-0 items-center gap-2 sm:gap-3" href="/" onClick={closeMenu}>
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-[var(--line)] bg-white p-1 shadow-2xs sm:size-10">
             <Image
               alt="BhishiBook Emblem"
               className="size-full object-contain"
-              height={38}
+              height={36}
               priority
               src="/logo-icon.png"
-              width={38}
+              width={36}
             />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-base font-bold text-[var(--foreground)] sm:text-lg">
+            <p className="truncate text-sm font-bold text-[var(--foreground)] sm:text-base lg:text-lg">
               {heading}
             </p>
-            <p className="text-[11px] font-medium text-[var(--muted)] sm:text-xs">{poweredBy}</p>
+            <p className="hidden text-[10px] font-medium text-[var(--muted)] sm:block sm:text-xs">
+              {poweredBy}
+            </p>
           </div>
         </Link>
 
@@ -109,33 +113,51 @@ export function NavHeader({
               ) : (
                 <>
                   <PwaInstallButton label={labels.installApp} variant="ghost" />
-                  <Button href="/login">{labels.login}</Button>
+                  <Button
+                    className="!text-white shadow-xs"
+                    href="/login"
+                    style={{ color: "#ffffff" }}
+                  >
+                    <span className="font-semibold text-white">{labels.login}</span>
+                  </Button>
                 </>
               )}
             </nav>
 
-            {/* Mobile Header Controls: Language Toggle + Hamburger Button */}
-            <div className="flex items-center gap-1.5 md:hidden">
+            {/* Mobile Header Controls: Install Button + Language Toggle + Hamburger Button */}
+            <div className="flex shrink-0 items-center gap-1.5 md:hidden">
+              <PwaInstallButton
+                className="h-8 shrink-0 px-2 py-1 text-xs font-bold whitespace-nowrap"
+                label="Install"
+                variant="banner"
+              />
               {languageToggle}
               <button
                 aria-expanded={mobileMenuOpen}
                 aria-label={mobileMenuOpen ? labels.close : labels.menu}
-                className="focus-ring inline-flex size-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[var(--foreground)] hover:bg-slate-50"
+                className="focus-ring inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[var(--foreground)] hover:bg-slate-50"
                 onClick={() => setMobileMenuOpen((prev) => !prev)}
                 type="button"
               >
-                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
               </button>
             </div>
           </>
         ) : (
-          <div className="flex items-center gap-2">{languageToggle}</div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <PwaInstallButton
+              className="h-8 shrink-0 px-2 py-1 text-xs font-bold whitespace-nowrap"
+              label="Install"
+              variant="banner"
+            />
+            {languageToggle}
+          </div>
         )}
       </div>
 
       {/* Mobile Drawer / Slide-down Menu */}
       {showNav && mobileMenuOpen ? (
-        <div className="border-t border-[var(--line)] bg-white px-4 py-4 shadow-lg md:hidden">
+        <div className="max-h-[85vh] overflow-y-auto border-t border-[var(--line)] bg-white px-4 py-4 shadow-lg md:hidden">
           {auth ? (
             <div className="mb-4 flex items-center justify-between rounded-lg bg-blue-50/60 p-3">
               <div className="flex items-center gap-2.5">
@@ -153,75 +175,117 @@ export function NavHeader({
           ) : null}
 
           <div className="flex flex-col gap-1.5">
-            {links.map((link) => {
-              const active =
-                link.href === "/group"
-                  ? pathname.startsWith("/group")
-                  : pathname.startsWith(link.href);
-              return (
-                <Link
-                  className={cn(
-                    "flex items-center rounded-lg px-3 py-2.5 text-base font-medium transition",
-                    active
-                      ? "bg-[var(--primary)] text-white"
-                      : "text-[var(--foreground)] hover:bg-slate-100"
-                  )}
-                  href={link.href}
-                  key={link.href}
-                  onClick={closeMenu}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            {groupTabs && groupTabs.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                <p className="px-3 pb-1 text-xs font-bold uppercase tracking-wider text-[var(--muted)]">
+                  विभाग / Sections
+                </p>
+                {groupTabs.map((tab) => {
+                  const active =
+                    tab.href === "/group"
+                      ? pathname === "/group"
+                      : pathname.startsWith(tab.href);
+                  return (
+                    <Link
+                      className={cn(
+                        "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition",
+                        active
+                          ? "bg-[var(--primary)] !text-white text-white font-semibold"
+                          : "text-[var(--foreground)] hover:bg-slate-100"
+                      )}
+                      href={tab.href}
+                      key={tab.href}
+                      onClick={closeMenu}
+                      style={active ? { color: "#ffffff" } : undefined}
+                    >
+                      <span className={active ? "text-white font-semibold" : undefined}>
+                        {tab.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+
+                {auth?.role === "GROUP_ADMIN" ? (
+                  <div className="mt-2 border-t border-[var(--line)] pt-2">
+                    <Link
+                      className={cn(
+                        "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition",
+                        pathname === "/member"
+                          ? "bg-[var(--primary)] !text-white text-white font-semibold"
+                          : "text-[var(--foreground)] hover:bg-slate-100"
+                      )}
+                      href="/member"
+                      onClick={closeMenu}
+                      style={pathname === "/member" ? { color: "#ffffff" } : undefined}
+                    >
+                      <span className={pathname === "/member" ? "text-white font-semibold" : undefined}>
+                        माझे खाते (Member View)
+                      </span>
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              links.map((link) => {
+                const active =
+                  link.href === "/group"
+                    ? pathname.startsWith("/group")
+                    : pathname.startsWith(link.href);
+                return (
+                  <Link
+                    className={cn(
+                      "flex items-center rounded-lg px-3 py-2.5 text-base font-medium transition",
+                      active
+                        ? "bg-[var(--primary)] !text-white text-white font-semibold"
+                        : "text-[var(--foreground)] hover:bg-slate-100"
+                    )}
+                    href={link.href}
+                    key={link.href}
+                    onClick={closeMenu}
+                    style={active ? { color: "#ffffff" } : undefined}
+                  >
+                    <span className={active ? "text-white font-semibold" : undefined}>
+                      {link.label}
+                    </span>
+                  </Link>
+                );
+              })
+            )}
 
             {auth ? (
               <>
                 <Link
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-2.5 text-base font-medium transition",
+                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition mt-1",
                     pathname === "/profile"
-                      ? "bg-[var(--primary)] text-white"
+                      ? "bg-[var(--primary)] !text-white text-white font-semibold"
                       : "text-[var(--foreground)] hover:bg-slate-100"
                   )}
                   href="/profile"
                   onClick={closeMenu}
+                  style={pathname === "/profile" ? { color: "#ffffff" } : undefined}
                 >
-                  <User size={18} />
-                  {labels.profile}
+                  <User size={16} />
+                  <span className={pathname === "/profile" ? "text-white font-semibold" : undefined}>
+                    {labels.profile}
+                  </span>
                 </Link>
-
-                <div className="pt-2">
-                  <PwaInstallButton
-                    className="w-full justify-center"
-                    label={labels.installApp}
-                    variant="primary"
-                  />
-                </div>
 
                 <div className="mt-3 border-t border-[var(--line)] pt-3">
                   <LogoutButton label={labels.logout} name={auth.name} />
                 </div>
               </>
             ) : (
-              <>
-                <div className="pt-2">
-                  <PwaInstallButton
-                    className="w-full justify-center"
-                    label={labels.installApp}
-                    variant="primary"
-                  />
-                </div>
-                <div className="mt-3 border-t border-[var(--line)] pt-3">
-                  <Link
-                    className="flex w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2.5 text-base font-semibold text-white"
-                    href="/login"
-                    onClick={closeMenu}
-                  >
-                    {labels.login}
-                  </Link>
-                </div>
-              </>
+              <div className="mt-3 border-t border-[var(--line)] pt-3">
+                <Link
+                  className="flex w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2.5 text-base font-semibold !text-white text-white shadow-sm"
+                  href="/login"
+                  onClick={closeMenu}
+                  style={{ color: "#ffffff" }}
+                >
+                  <span className="font-semibold text-white">{labels.login}</span>
+                </Link>
+              </div>
             )}
           </div>
         </div>

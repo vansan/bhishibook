@@ -9,9 +9,10 @@ type AppShellProps = {
   /** The group whose name brands the header. Falls back to the platform name. */
   groupName?: string;
   showNav?: boolean;
+  groupTabs?: { href: string; label: string }[];
 };
 
-export async function AppShell({ children, groupName, showNav = true }: AppShellProps) {
+export async function AppShell({ children, groupName, showNav = true, groupTabs }: AppShellProps) {
   const [t, auth] = await Promise.all([getMessages(), getAuth()]);
   const heading = groupName ?? platform.defaultGroupName;
 
@@ -35,6 +36,7 @@ export async function AppShell({ children, groupName, showNav = true }: AppShell
     <div className="flex min-h-screen flex-col">
       <NavHeader
         auth={auth ? { role: auth.role, name: auth.name } : null}
+        groupTabs={groupTabs}
         heading={heading}
         labels={{
           profile: t.nav.profile,

@@ -19,21 +19,21 @@ export default async function GroupLayout({ children }: { children: React.ReactN
     }),
   ]);
 
+  const groupTabs = [
+    { href: "/group", label: t.tabs.dashboard },
+    { href: "/group/members", label: t.tabs.members },
+    { href: "/group/contributions", label: t.tabs.contributions },
+    { href: "/group/loans", label: t.tabs.loans },
+    { href: "/group/fines", label: t.tabs.fines },
+    { href: "/group/ledger", label: t.tabs.ledger },
+    { href: "/group/receipts", label: t.tabs.receipts },
+    { href: "/group/distribution", label: t.tabs.distribution },
+    { href: "/group/settings", label: t.tabs.settings },
+  ];
+
   return (
-    <AppShell groupName={group?.name}>
-      <GroupTabs
-        tabs={[
-          { href: "/group", label: t.tabs.dashboard },
-          { href: "/group/members", label: t.tabs.members },
-          { href: "/group/contributions", label: t.tabs.contributions },
-          { href: "/group/loans", label: t.tabs.loans },
-          { href: "/group/fines", label: t.tabs.fines },
-          { href: "/group/ledger", label: t.tabs.ledger },
-          { href: "/group/receipts", label: t.tabs.receipts },
-          { href: "/group/distribution", label: t.tabs.distribution },
-          { href: "/group/settings", label: t.tabs.settings },
-        ]}
-      />
+    <AppShell groupName={group?.name} groupTabs={groupTabs}>
+      <GroupTabs className="hidden md:block" tabs={groupTabs} />
       {children}
     </AppShell>
   );

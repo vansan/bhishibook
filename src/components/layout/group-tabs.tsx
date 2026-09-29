@@ -6,13 +6,13 @@ import { cn } from "@/lib/utils";
 
 export type GroupTab = { href: string; label: string };
 
-export function GroupTabs({ tabs }: { tabs: GroupTab[] }) {
+export function GroupTabs({ tabs, className }: { tabs: GroupTab[]; className?: string }) {
   const pathname = usePathname();
 
   return (
     <nav
       aria-label="Group sections"
-      className="border-b border-[var(--line)] bg-white/70"
+      className={cn("border-b border-[var(--line)] bg-white/70", className)}
     >
       <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 sm:px-6 lg:px-8">
         {tabs.map((tab) => {

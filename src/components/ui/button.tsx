@@ -6,6 +6,7 @@ type ButtonProps = {
   className?: string;
   href?: string;
   variant?: "primary" | "secondary" | "ghost" | "danger";
+  style?: React.CSSProperties;
   /**
    * Only meaningful without `href`. Defaults to "submit" so the button works
    * inside a form posting to a Server Function; pass "button" for anything
@@ -22,6 +23,7 @@ export function Button({
   className,
   href,
   variant = "primary",
+  style,
   type = "submit",
   disabled,
   name,
@@ -30,7 +32,7 @@ export function Button({
   const classes = cn(
     "focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
     variant === "primary" &&
-      "bg-[var(--primary)] text-white hover:bg-[var(--primary-strong)]",
+      "bg-[var(--primary)] !text-white text-white hover:bg-[var(--primary-strong)]",
     variant === "secondary" &&
       "border border-[var(--line)] bg-white text-[var(--foreground)] hover:border-[var(--primary)]",
     variant === "ghost" &&
@@ -40,16 +42,21 @@ export function Button({
     className
   );
 
+  const mergedStyle = {
+    ...(variant === "primary" ? { color: "#ffffff" } : {}),
+    ...style,
+  };
+
   if (href) {
     return (
-      <Link className={classes} href={href}>
+      <Link className={classes} href={href} style={mergedStyle}>
         {children}
       </Link>
     );
   }
 
   return (
-    <button className={classes} disabled={disabled} name={name} type={type} value={value}>
+    <button className={classes} disabled={disabled} name={name} style={mergedStyle} type={type} value={value}>
       {children}
     </button>
   );

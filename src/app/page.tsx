@@ -33,14 +33,22 @@ export default async function HomePage() {
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             {auth ? (
-              <Button href={homePathFor(auth.role)}>
-                Go to my dashboard
-                <ArrowRight size={16} />
+              <Button
+                className="!text-white shadow-sm"
+                href={homePathFor(auth.role)}
+                style={{ color: "#ffffff" }}
+              >
+                <span className="font-semibold text-white">Go to my dashboard</span>
+                <ArrowRight className="text-white" size={16} />
               </Button>
             ) : (
-              <Button href="/login">
-                {t.nav.login}
-                <ArrowRight size={16} />
+              <Button
+                className="!text-white shadow-sm"
+                href="/login"
+                style={{ color: "#ffffff" }}
+              >
+                <span className="font-semibold text-white">{t.nav.login}</span>
+                <ArrowRight className="text-white" size={16} />
               </Button>
             )}
           </div>

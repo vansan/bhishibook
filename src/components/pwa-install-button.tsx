@@ -85,8 +85,8 @@ export function PwaInstallButton({
   }, []);
 
   if (isStandalone || installed) return null;
-  // If not iOS and no install prompt caught, still show install button if mobile browser
-  if (!promptEvent && !isIos) return null;
+
+  const [showAndroidGuide, setShowAndroidGuide] = useState(false);
 
   const handleInstallClick = async () => {
     if (promptEvent) {
@@ -98,6 +98,8 @@ export function PwaInstallButton({
       setPromptEvent(null);
     } else if (isIos) {
       setShowIosGuide(true);
+    } else {
+      setShowAndroidGuide(true);
     }
   };
 
@@ -106,18 +108,56 @@ export function PwaInstallButton({
       <button
         className={cn(
           variant === "primary"
-            ? "focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-[var(--primary-strong)]"
+            ? "focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold !text-white text-white shadow-xs hover:bg-[var(--primary-strong)]"
             : variant === "banner"
-              ? "focus-ring inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
+              ? "focus-ring inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold !text-white text-white shadow-xs hover:bg-emerald-700"
               : "focus-ring inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-300 bg-emerald-50/70 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100",
           className
         )}
         onClick={handleInstallClick}
+        style={variant === "primary" || variant === "banner" ? { color: "#ffffff" } : undefined}
         type="button"
       >
-        <Download size={15} />
-        <span>{label}</span>
+        <Download className="shrink-0" size={13} />
+        <span className="shrink-0">{label}</span>
       </button>
+
+      {showAndroidGuide ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-xs sm:items-center">
+          <div className="w-full max-w-sm rounded-xl border border-[var(--line)] bg-white p-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2 font-bold text-[var(--foreground)]">
+                <Smartphone className="text-[var(--primary)]" size={20} />
+                <span>Android वर इन्स्टॉल करा</span>
+              </div>
+              <button
+                className="rounded p-1 text-[var(--muted)] hover:bg-slate-100"
+                onClick={() => setShowAndroidGuide(false)}
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-[var(--foreground)]">
+              <p>
+                1. Chrome ब्राऊझरच्या वरच्या उजव्या कोपऱ्यातील <strong>३ ठिपक्यांवर (⋮)</strong> टॅप करा.
+              </p>
+              <p>
+                2. खालील पर्यायांमधून <strong>&ldquo;Install app&rdquo;</strong> किंवा <strong>&ldquo;Add to Home screen&rdquo;</strong> निवडा.
+              </p>
+              <p>3. आता BhishiBook चे ॲप तुमच्या मोबाईलच्या होम स्क्रीनवर तयार होईल!</p>
+            </div>
+            <button
+              className="mt-5 w-full rounded-md bg-[var(--primary)] py-2 text-sm font-semibold !text-white text-white"
+              onClick={() => setShowAndroidGuide(false)}
+              style={{ color: "#ffffff" }}
+              type="button"
+            >
+              समजले (Got it)
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {showIosGuide ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-xs sm:items-center">
@@ -147,8 +187,9 @@ export function PwaInstallButton({
               <p>3. आता BhishiBook तुमच्या मोबाईलच्या होम स्क्रीनवरून थेट अ‍ॅपप्रमाणे उघडू शकता!</p>
             </div>
             <button
-              className="mt-5 w-full rounded-md bg-[var(--primary)] py-2 text-sm font-semibold text-white"
+              className="mt-5 w-full rounded-md bg-[var(--primary)] py-2 text-sm font-semibold !text-white text-white"
               onClick={() => setShowIosGuide(false)}
+              style={{ color: "#ffffff" }}
               type="button"
             >
               समजले (Got it)

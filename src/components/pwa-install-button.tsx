@@ -93,7 +93,7 @@ export function PwaInstallButton({
       await promptEvent.prompt();
       const choice = await promptEvent.userChoice;
       if (choice.outcome === "accepted") {
-        setIsStandalone(true);
+        setInstalled(true);
       }
       setPromptEvent(null);
     } else if (isIos) {

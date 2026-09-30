@@ -51,10 +51,11 @@ const ok = (message: string): ActionState => ({ success: message });
 
 /** Turn a thrown error into something an admin can read. */
 function failure(error: unknown): ActionState {
+  console.error("Action failure:", error);
   const message = error instanceof Error ? error.message : "Something went wrong";
   // Prisma's own errors are not for end users.
   if (message.includes("prisma") || message.includes("Invalid `")) {
-    return { error: "That could not be saved. Please check the values and try again." };
+    return { error: "नोंद जतन होऊ शकली नाही. कृपया माहिती तपासा / That could not be saved. Please check values." };
   }
   return { error: message };
 }
@@ -64,18 +65,59 @@ function text(formData: FormData, key: string): string {
 }
 
 function money(formData: FormData, key: string): number {
-  const raw = text(formData, key).replace(/[₹,\s]/g, "");
+  let raw = text(formData, key).replace(/[₹,\s]/g, "").replace(/\/-$/, "");
   if (!raw) return 0;
+  // Support '50k' or '50K' notation
+  if (/^\d+(\.\d+)?k$/i.test(raw)) {
+    const num = parseFloat(raw);
+    raw = (num * 1000).toString();
+  }
   return rupeesToPaise(raw);
 }
 
 function date(formData: FormData, key: string): Date {
   const raw = text(formData, key);
-  // Form dates are plain calendar days; parse them as UTC so the fine day
-  // count does not shift with the server timezone.
-  const parsed = raw ? new Date(`${raw}T00:00:00.000Z`) : new Date();
-  if (Number.isNaN(parsed.getTime())) throw new Error("Enter a valid date");
-  return parsed;
+  if (!raw) return new Date();
+  const trimmed = raw.trim();
+
+  // 1. ISO format: YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+
+  // 2. Indian slash/dash: DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(trimmed);
+  if (dmyMatch) {
+    const [, d, m, y] = dmyMatch;
+    const parsed = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T00:00:00.000Z`);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+
+  // 3. Text date: 03 sept 2025, 3 September 2025, etc.
+  const textMatch = /^(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})$/.exec(trimmed);
+  if (textMatch) {
+    const [, d, monStr, y] = textMatch;
+    const months: Record<string, string> = {
+      jan: "01", january: "01", feb: "02", february: "02",
+      mar: "03", march: "03", apr: "04", april: "04",
+      may: "05", jun: "06", june: "06", jul: "07", july: "07",
+      aug: "08", august: "08", sep: "09", sept: "09", september: "09",
+      oct: "10", october: "10", nov: "11", november: "11",
+      dec: "12", december: "12",
+    };
+    const m = months[monStr.toLowerCase().slice(0, 4)] || months[monStr.toLowerCase().slice(0, 3)];
+    if (m) {
+      const parsed = new Date(`${y}-${m}-${d.padStart(2, "0")}T00:00:00.000Z`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+  }
+
+  const parsed = new Date(trimmed.includes("T") ? trimmed : `${trimmed}T00:00:00.000Z`);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  const direct = new Date(trimmed);
+  if (!Number.isNaN(direct.getTime())) return direct;
+  throw new Error("कृपया योग्य तारीख टाका (उदा. YYYY-MM-DD किंवा DD-MM-YYYY)");
 }
 
 async function activeCycleId(groupId: string): Promise<string> {

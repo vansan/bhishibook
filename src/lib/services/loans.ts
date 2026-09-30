@@ -136,144 +136,140 @@ export async function createLoan(input: {
   notes?: string;
   actorUserId?: string | null;
 }) {
-  return prisma.$transaction(async (tx) => {
-    const cycle = await tx.cycle.findFirstOrThrow({
-      where: { id: input.cycleId, groupId: input.groupId },
-      select: {
-        id: true,
-        monthlyInterestRate: true,
-        maxRepaymentMonths: true,
-        maxLoanCorpusMultiple: true,
-        maxLoanAmount: true,
-        status: true,
-        group: { select: { name: true } },
-      },
-    });
+  return prisma.$transaction(
+    async (tx) => {
+      const [cycle, member, activeLoan, contributed, outstanding, funds] = await Promise.all([
+        tx.cycle.findFirstOrThrow({
+          where: { id: input.cycleId, groupId: input.groupId },
+          select: {
+            id: true,
+            monthlyInterestRate: true,
+            maxRepaymentMonths: true,
+            maxLoanCorpusMultiple: true,
+            maxLoanAmount: true,
+            status: true,
+            group: { select: { name: true } },
+          },
+        }),
+        tx.groupMember.findFirstOrThrow({
+          where: { id: input.memberId, groupId: input.groupId },
+          select: { id: true, displayName: true, status: true },
+        }),
+        tx.loan.findFirst({
+          where: { memberId: input.memberId, status: "ACTIVE" },
+          select: { id: true },
+        }),
+        corpusContributedPaise(tx, input.memberId),
+        outstandingPrincipalPaise(tx, input.memberId),
+        availableFundsPaise(tx, input.groupId),
+      ]);
 
-    if (cycle.status === "CLOSED") {
-      throw new Error("This cycle is closed. Start a new cycle to disburse a loan.");
-    }
+      if (cycle.status === "CLOSED") {
+        throw new Error("This cycle is closed. Start a new cycle to disburse a loan.");
+      }
 
-    const member = await tx.groupMember.findFirstOrThrow({
-      where: { id: input.memberId, groupId: input.groupId },
-      select: { id: true, displayName: true, status: true },
-    });
+      if (member.status !== "ACTIVE") {
+        throw new Error(`${member.displayName} is not an active member`);
+      }
 
-    if (member.status !== "ACTIVE") {
-      throw new Error(`${member.displayName} is not an active member`);
-    }
-
-    // Rule: Member can only have 1 active loan at a time.
-    // If they clear it, they can take a new loan again.
-    const activeLoan = await tx.loan.findFirst({
-      where: {
-        memberId: member.id,
-        status: "ACTIVE",
-      },
-      select: { id: true },
-    });
-
-    if (activeLoan) {
-      throw new Error(
-        `${member.displayName} यांचे आधीचे कर्ज अद्याप सुरू आहे (Active). एकावेळी एकच कर्ज घेता येते, ते पूर्ण फेडल्यावरच (Clear केल्यावर) नवीन कर्ज घेता येईल / Member already has an active loan. Previous loan must be cleared before taking a new loan.`
-      );
-    }
-
-    const [contributed, outstanding, funds] = await Promise.all([
-      corpusContributedPaise(tx, member.id),
-      outstandingPrincipalPaise(tx, member.id),
-      availableFundsPaise(tx, input.groupId),
-    ]);
-
-    const multiple = Number(cycle.maxLoanCorpusMultiple.toFixed(2)) || 3;
-    const maxLoanPaiseCap = decimalToPaise(cycle.maxLoanAmount);
-    const maxAllowedPaise =
-      maxLoanPaiseCap > 0 ? maxLoanPaiseCap : Math.floor(contributed * multiple);
-
-    if (input.principalPaise > maxAllowedPaise) {
-      if (maxLoanPaiseCap > 0) {
+      // Rule: Member can only have 1 active loan at a time.
+      if (activeLoan) {
         throw new Error(
-          `कमाल कर्ज मर्यादा ₹${Number(cycle.maxLoanAmount).toLocaleString("en-IN")} आहे. त्यापेक्षा जास्त कर्ज घेता येणार नाही / Requested loan exceeds maximum allowed loan limit of ₹${Number(cycle.maxLoanAmount).toLocaleString("en-IN")}.`
-        );
-      } else {
-        throw new Error(
-          `कमाल कर्ज मर्यादा सेट नसल्यामुळे जमा रक्कमेच्या ${multiple} पट (₹${(maxAllowedPaise / 100).toLocaleString("en-IN")}) पर्यंतच कर्ज घेता येईल / Requested loan exceeds ${multiple}x of contributed savings.`
+          `${member.displayName} यांचे आधीचे कर्ज अद्याप सुरू आहे (Active). एकावेळी एकच कर्ज घेता येते, ते पूर्ण फेडल्यावरच (Clear केल्यावर) नवीन कर्ज घेता येईल / Member already has an active loan. Previous loan must be cleared before taking a new loan.`
         );
       }
-    }
 
-    if (input.principalPaise > funds) {
-      throw new Error(
-        `संस्थेच्या तिजोरीत पुरेसा निधी उपलब्ध नाही. उपलब्ध निधी: ₹${(funds / 100).toLocaleString("en-IN")} / Insufficient funds in treasury.`
-      );
-    }
+      const multiple = Number(cycle.maxLoanCorpusMultiple.toFixed(2)) || 3;
+      const maxLoanPaiseCap = decimalToPaise(cycle.maxLoanAmount);
+      const maxAllowedPaise =
+        maxLoanPaiseCap > 0 ? maxLoanPaiseCap : Math.floor(contributed * multiple);
 
-    // Principal must clear within the cycle's repayment window.
-    const dueOn = new Date(input.disbursedOn);
-    dueOn.setUTCMonth(dueOn.getUTCMonth() + cycle.maxRepaymentMonths);
+      if (input.principalPaise > maxAllowedPaise) {
+        if (maxLoanPaiseCap > 0) {
+          throw new Error(
+            `कमाल कर्ज मर्यादा ₹${Number(cycle.maxLoanAmount).toLocaleString("en-IN")} आहे. त्यापेक्षा जास्त कर्ज घेता येणार नाही / Requested loan exceeds maximum allowed loan limit of ₹${Number(cycle.maxLoanAmount).toLocaleString("en-IN")}.`
+          );
+        } else {
+          throw new Error(
+            `कमाल कर्ज मर्यादा सेट नसल्यामुळे जमा रक्कमेच्या ${multiple} पट (₹${(maxAllowedPaise / 100).toLocaleString("en-IN")}) पर्यंतच कर्ज घेता येईल / Requested loan exceeds ${multiple}x of contributed savings.`
+          );
+        }
+      }
 
-    const loan = await tx.loan.create({
-      data: {
+      if (input.principalPaise > funds) {
+        throw new Error(
+          `संस्थेच्या तिजोरीत पुरेसा निधी उपलब्ध नाही. उपलब्ध निधी: ₹${(funds / 100).toLocaleString("en-IN")} / Insufficient funds in treasury.`
+        );
+      }
+
+      // Principal must clear within the cycle's repayment window.
+      const dueOn = new Date(input.disbursedOn);
+      dueOn.setUTCMonth(dueOn.getUTCMonth() + cycle.maxRepaymentMonths);
+
+      const loan = await tx.loan.create({
+        data: {
+          cycleId: cycle.id,
+          memberId: member.id,
+          principal: paiseToDecimalString(input.principalPaise),
+          disbursedOn: input.disbursedOn,
+          dueOn,
+          interestRate: cycle.monthlyInterestRate,
+          status: "ACTIVE",
+          notes: input.notes,
+        },
+      });
+
+      await postLedger(tx, {
+        groupId: input.groupId,
+        cycleId: cycle.id,
+        entryType: "LOAN_DISBURSEMENT",
+        amountPaise: input.principalPaise,
+        entryDate: input.disbursedOn,
+        description: `Loan to ${member.displayName}`,
+        referenceType: "Loan",
+        referenceId: loan.id,
+      });
+
+      const receipt = await issueReceipt(tx, {
+        groupId: input.groupId,
         cycleId: cycle.id,
         memberId: member.id,
-        principal: paiseToDecimalString(input.principalPaise),
-        disbursedOn: input.disbursedOn,
-        dueOn,
-        interestRate: cycle.monthlyInterestRate,
-        status: "ACTIVE",
-        notes: input.notes,
-      },
-    });
+        loanId: loan.id,
+        receiptType: "LOAN",
+        amountPaise: input.principalPaise,
+        issuedAt: input.disbursedOn,
+      });
 
-    await postLedger(tx, {
-      groupId: input.groupId,
-      cycleId: cycle.id,
-      entryType: "LOAN_DISBURSEMENT",
-      amountPaise: input.principalPaise,
-      entryDate: input.disbursedOn,
-      description: `Loan to ${member.displayName}`,
-      referenceType: "Loan",
-      referenceId: loan.id,
-    });
-
-    const receipt = await issueReceipt(tx, {
-      groupId: input.groupId,
-      cycleId: cycle.id,
-      memberId: member.id,
-      loanId: loan.id,
-      receiptType: "LOAN",
-      amountPaise: input.principalPaise,
-      issuedAt: input.disbursedOn,
-    });
-
-    const whatsappText = buildReceiptText({
-      groupName: cycle.group.name,
-      receiptNo: receipt.receiptNo,
-      memberName: member.displayName,
-      issuedAt: input.disbursedOn,
-      lines: [{ label: "Loan disbursed", amountPaise: input.principalPaise }],
-      totalPaise: input.principalPaise,
-      footer: `Interest ${cycle.monthlyInterestRate.toFixed(2)}% per month. Principal due by ${dueOn.toISOString().slice(0, 10)}.\nPowered by BhishiBook`,
-    });
-
-    await tx.receipt.update({ where: { id: receipt.id }, data: { whatsappText } });
-
-    await writeAudit(tx, {
-      groupId: input.groupId,
-      actorUserId: input.actorUserId,
-      action: "CREATE_LOAN",
-      entityType: "Loan",
-      entityId: loan.id,
-      newValue: {
-        memberId: member.id,
-        principal: input.principalPaise,
-        dueOn: dueOn.toISOString(),
+      const whatsappText = buildReceiptText({
+        groupName: cycle.group.name,
         receiptNo: receipt.receiptNo,
-      },
-    });
+        memberName: member.displayName,
+        issuedAt: input.disbursedOn,
+        lines: [{ label: "Loan disbursed", amountPaise: input.principalPaise }],
+        totalPaise: input.principalPaise,
+        footer: `Interest ${cycle.monthlyInterestRate.toFixed(2)}% per month. Principal due by ${dueOn.toISOString().slice(0, 10)}.\nPowered by BhishiBook`,
+      });
 
-    return { loan, receiptNo: receipt.receiptNo, whatsappText };
-  });
+      await tx.receipt.update({ where: { id: receipt.id }, data: { whatsappText } });
+
+      await writeAudit(tx, {
+        groupId: input.groupId,
+        actorUserId: input.actorUserId,
+        action: "CREATE_LOAN",
+        entityType: "Loan",
+        entityId: loan.id,
+        newValue: {
+          memberId: member.id,
+          principal: input.principalPaise,
+          dueOn: dueOn.toISOString(),
+          receiptNo: receipt.receiptNo,
+        },
+      });
+
+      return { loan, receiptNo: receipt.receiptNo, whatsappText };
+    },
+    { timeout: 30000, maxWait: 15000 }
+  );
 }
 
 /**
@@ -359,7 +355,7 @@ export async function generateInterestDues(input: {
     }
 
     return { created: result.count };
-  });
+  }, { timeout: 30000, maxWait: 15000 });
 }
 
 export type LoanPosition = {
@@ -654,7 +650,7 @@ export async function recordLoanRepayment(input: {
     });
 
     return { repayment, allocation, receiptNo: receipt.receiptNo, whatsappText };
-  });
+  }, { timeout: 30000, maxWait: 15000 });
 }
 
 export async function updateLoan(input: {
@@ -770,7 +766,7 @@ export async function updateLoan(input: {
     });
 
     return updated;
-  });
+  }, { timeout: 30000, maxWait: 15000 });
 }
 
 export async function deleteLoan(input: {
@@ -830,6 +826,6 @@ export async function deleteLoan(input: {
     });
 
     return { success: true, memberName: loan.member.displayName };
-  });
+  }, { timeout: 30000, maxWait: 15000 });
 }
 

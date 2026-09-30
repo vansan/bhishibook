@@ -53,6 +53,10 @@ const ok = (message: string): ActionState => ({ success: message });
 function failure(error: unknown): ActionState {
   console.error("Action failure:", error);
   const message = error instanceof Error ? error.message : "Something went wrong";
+  const lower = message.toLowerCase();
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("expired")) {
+    return { error: "सर्व्हर कनेक्शन वेळ संपली (Timeout). कृपया पुन्हा प्रयत्न करा / Server request timed out. Please try again." };
+  }
   // Prisma's own errors are not for end users.
   if (message.includes("prisma") || message.includes("Invalid `")) {
     return { error: "नोंद जतन होऊ शकली नाही. कृपया माहिती तपासा / That could not be saved. Please check values." };

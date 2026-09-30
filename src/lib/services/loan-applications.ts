@@ -4,6 +4,7 @@ import {
   atLeastZero,
   decimalToPaise,
   paiseToDecimalString,
+  sumPaise,
   type Paise,
 } from "@/lib/money";
 import { createLoan, getGroupAvailableFunds } from "./loans";
@@ -125,9 +126,63 @@ export async function createLoanApplication(input: {
   // Verify applicant
   const applicant = await prisma.groupMember.findFirst({
     where: { id: input.applicantId, groupId: input.groupId, status: "ACTIVE" },
+    include: { contributions: { select: { amountPaid: true } } },
   });
   if (!applicant) {
     throw new Error("Applicant member not found or is inactive.");
+  }
+
+  // Max loan amount check:
+  // If maxLoanAmount is set by admin (> 0), that is the maximum allowed loan.
+  // If not set, limit is 3x the member's contributed corpus.
+  const maxCapPaise = decimalToPaise(cycle.maxLoanAmount);
+  if (maxCapPaise > 0) {
+    if (input.amountPaise > maxCapPaise) {
+      throw new Error(
+        `कमाल कर्ज मर्यादा ₹${Number(cycle.maxLoanAmount).toLocaleString("en-IN")} आहे. त्यापेक्षा जास्त कर्जासाठी अर्ज करता येणार नाही / Requested loan exceeds maximum allowed loan limit of ₹${Number(cycle.maxLoanAmount).toLocaleString("en-IN")}.`
+      );
+    }
+  } else {
+    const contributed = sumPaise(
+      applicant.contributions.map((row) => decimalToPaise(row.amountPaid))
+    );
+    const multiple = Number(cycle.maxLoanCorpusMultiple.toFixed(2)) || 3;
+    const maxAllowedPaise = Math.floor(contributed * multiple);
+    if (maxAllowedPaise > 0 && input.amountPaise > maxAllowedPaise) {
+      throw new Error(
+        `कमाल कर्ज मर्यादा सेट नसल्यामुळे जमा रक्कमेच्या ${multiple} पट (₹${(maxAllowedPaise / 100).toLocaleString("en-IN")}) पर्यंतच कर्ज घेता येईल / Max loan limit without cap is ${multiple}x of savings.`
+      );
+    }
+  }
+
+  // Rule: Member can only have 1 active loan at a time.
+  // If they clear it, they can take a new loan again.
+  const activeLoan = await prisma.loan.findFirst({
+    where: {
+      memberId: applicant.id,
+      status: "ACTIVE",
+    },
+    select: { id: true },
+  });
+
+  if (activeLoan) {
+    throw new Error(
+      "तुमचे आधीचे कर्ज अद्याप सुरू आहे (Active). एकावेळी एकच कर्ज घेता येते, ते पूर्ण फेडल्यावरच (Clear झाल्यावर) नवीन कर्जासाठी अर्ज करता येईल / You already have an active loan. Previous loan must be cleared before applying again."
+    );
+  }
+
+  const pendingApp = await prisma.loanApplication.findFirst({
+    where: {
+      applicantId: applicant.id,
+      status: { in: ["PENDING_APPROVAL", "READY_FOR_DISBURSEMENT"] },
+    },
+    select: { id: true },
+  });
+
+  if (pendingApp) {
+    throw new Error(
+      "तुमचा कर्जाचा अर्ज आधीच प्रलंबित आहे (Pending Application). त्यावर निर्णय होईपर्यंत नवीन अर्ज करता येणार नाही / You already have a pending loan application."
+    );
   }
 
   // Verify all guarantors belong to this group and are active

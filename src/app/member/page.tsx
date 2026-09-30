@@ -11,6 +11,7 @@ import { whatsappShareUrl } from "@/lib/receipt-text";
 import { getGroupOverview, getMemberPassbook, getMemberSummary } from "@/lib/repositories";
 import { getGroupLoanApplications, getActiveGuaranteesCountMap } from "@/lib/services/loan-applications";
 import { ReceiptActions } from "@/app/group/receipts/receipt-actions";
+import { ReceiptBadge } from "@/components/ui/receipt-badge";
 import { cn } from "@/lib/utils";
 import {
   ApplyLoanModal,
@@ -74,6 +75,7 @@ export default async function MemberPage() {
         actions={
           <ApplyLoanModal
             currentMemberId={scope.memberId}
+            hasActiveLoan={summary.activeLoanCount > 0}
             labels={{
               applyBtn: t.loans.apply,
               modalTitle: t.loans.applyTitle,
@@ -85,6 +87,11 @@ export default async function MemberPage() {
               submittingLabel: t.loans.submittingApplication,
               close: t.common.close,
             }}
+            maxLoanAmount={
+              summary.maxLoanAmountPaise > 0
+                ? Math.round(summary.maxLoanAmountPaise / 100)
+                : 50000
+            }
             members={memberOptions}
           />
         }
@@ -290,7 +297,9 @@ export default async function MemberPage() {
                   <tr className="border-b border-[var(--line)] last:border-0" key={receipt.id}>
                     <td className="px-4 py-3 font-medium tabular-nums">{receipt.receiptNo}</td>
                     <td className="px-4 py-3 text-[var(--muted)]">{receipt.issuedOn}</td>
-                    <td className="px-4 py-3">{receipt.receiptType}</td>
+                    <td className="px-4 py-3">
+                      <ReceiptBadge locale={locale} type={receipt.receiptType} />
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {formatPaise(receipt.amountPaise, whole)}
                     </td>

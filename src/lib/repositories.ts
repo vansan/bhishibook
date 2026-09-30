@@ -213,6 +213,7 @@ export type MemberSummary = {
   finesOutstandingPaise: Paise;
   /** What this member may still borrow, under the cycle's corpus multiple. */
   borrowingHeadroomPaise: Paise;
+  maxLoanAmountPaise: Paise;
   activeLoanCount: number;
   receiptCount: number;
 };
@@ -244,7 +245,7 @@ export async function getMemberSummary(
           cycles: {
             orderBy: { startsOn: "desc" },
             take: 1,
-            select: { id: true, maxLoanCorpusMultiple: true },
+            select: { id: true, maxLoanCorpusMultiple: true, maxLoanAmount: true },
           },
         },
       },
@@ -288,7 +289,9 @@ export async function getMemberSummary(
   );
 
   const multiple = cycle?.maxLoanCorpusMultiple.toFixed(2) ?? "2.00";
-  const maxLoanPaise = maxLoanFor(corpusContributedPaise, multiple);
+  const rawMaxLoanPaise = maxLoanFor(corpusContributedPaise, multiple);
+  const maxCapPaise = cycle?.maxLoanAmount ? decimalToPaise(cycle.maxLoanAmount) : 0;
+  const maxLoanPaise = maxCapPaise > 0 ? Math.min(rawMaxLoanPaise, maxCapPaise) : rawMaxLoanPaise;
 
   return {
     memberId: member.id,
@@ -315,6 +318,7 @@ export async function getMemberSummary(
       0
     ),
     borrowingHeadroomPaise: Math.max(maxLoanPaise - outstandingPrincipalPaise, 0),
+    maxLoanAmountPaise: maxCapPaise,
     activeLoanCount: loans.filter((loan) => loan.status === "ACTIVE").length,
     receiptCount,
   };

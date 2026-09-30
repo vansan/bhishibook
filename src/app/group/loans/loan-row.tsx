@@ -14,6 +14,7 @@ type LoanRowProps = {
     principalRaw: string;
     principalLabel: string;
     outstandingPrincipalLabel: string;
+    outstandingPrincipalRupees?: string;
     interestRate: string;
     disbursedOnRaw: string;
     notes?: string | null;
@@ -21,6 +22,7 @@ type LoanRowProps = {
     totalOwedRupees: string;
     interestLabel: string;
     fineLabel: string;
+    interestRupees?: string;
     dueOn: string;
     isClosed: boolean;
     isOverdue: boolean;
@@ -49,6 +51,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export function LoanRow({ loan, labels }: LoanRowProps) {
   const [panel, setPanel] = useState<"none" | "repay" | "edit">("none");
+  const initialRepay =
+    loan.interestRupees && Number(loan.interestRupees) > 0
+      ? loan.interestRupees
+      : loan.totalOwedRupees;
+  const [repayAmount, setRepayAmount] = useState<string>(initialRepay);
 
   return (
     <>
@@ -65,6 +72,7 @@ export function LoanRow({ loan, labels }: LoanRowProps) {
             </span>
           ) : null}
         </td>
+        <td className="px-4 py-3 text-[var(--muted)]">{loan.disbursedOnRaw}</td>
         <td className="px-4 py-3 text-right">{loan.principalLabel}</td>
         <td className="px-4 py-3 text-right">{loan.outstandingPrincipalLabel}</td>
         <td className="px-4 py-3 text-right">
@@ -123,16 +131,37 @@ export function LoanRow({ loan, labels }: LoanRowProps) {
 
       {panel === "repay" && !loan.isClosed ? (
         <tr className="border-b border-[var(--line)] bg-emerald-50/40">
-          <td className="px-4 py-4" colSpan={6}>
+          <td className="px-4 py-4" colSpan={7}>
             <ActionForm
               action={recordRepaymentAction}
               hidden={{ loanId: loan.id }}
               submitLabel={labels.repay}
             >
-              <p className="text-xs text-[var(--muted)]">{labels.repayHint}</p>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-[var(--muted)]">{labels.repayHint}</p>
+                <div className="flex items-center gap-2">
+                  {loan.interestRupees && Number(loan.interestRupees) > 0 ? (
+                    <button
+                      className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition"
+                      onClick={() => setRepayAmount(loan.interestRupees!)}
+                      type="button"
+                    >
+                      फक्त व्याज: ₹{loan.interestRupees}
+                    </button>
+                  ) : null}
+                  <button
+                    className="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800 hover:bg-blue-100 transition"
+                    onClick={() => setRepayAmount(loan.totalOwedRupees)}
+                    type="button"
+                  >
+                    संपूर्ण फेड: ₹{loan.totalOwedRupees}
+                  </button>
+                </div>
+              </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field
-                  defaultValue={loan.totalOwedRupees}
+                  key={repayAmount}
+                  defaultValue={repayAmount}
                   label={labels.amount}
                   name="amount"
                   required
@@ -162,7 +191,7 @@ export function LoanRow({ loan, labels }: LoanRowProps) {
 
       {panel === "edit" ? (
         <tr className="border-b border-[var(--line)] bg-blue-50/40">
-          <td className="px-4 py-4" colSpan={6}>
+          <td className="px-4 py-4" colSpan={7}>
             <ActionForm
               action={updateLoanAction}
               hidden={{ loanId: loan.id }}

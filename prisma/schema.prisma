@@ -171,6 +171,7 @@ model Cycle {
   monthlyInterestRate   Decimal             @default(3.00) @db.Decimal(5, 2)
   maxRepaymentMonths    Int                 @default(6)
   maxLoanCorpusMultiple Decimal             @default(2.00) @db.Decimal(5, 2)
+  maxLoanAmount         Decimal             @default(50000.00) @db.Decimal(12, 2)
   distributionBase      DistributionBase    @default(INTEREST_ONLY)
   distributeFines       Boolean             @default(true)
   closedAt              DateTime?

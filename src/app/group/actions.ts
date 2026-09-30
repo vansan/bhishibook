@@ -463,6 +463,7 @@ function cycleFromForm(formData: FormData) {
     monthlyInterestRate: text(formData, "monthlyInterestRate") || "3",
     maxRepaymentMonths: Number(text(formData, "maxRepaymentMonths") || "6"),
     maxLoanCorpusMultiple: text(formData, "maxLoanCorpusMultiple") || "2",
+    maxLoanAmount: text(formData, "maxLoanAmount") || "50000",
     distributionBase:
       text(formData, "distributionBase") === "CORPUS_PLUS_INTEREST"
         ? ("CORPUS_PLUS_INTEREST" as const)

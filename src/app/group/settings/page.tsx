@@ -44,6 +44,7 @@ export default async function GroupSettingsPage() {
         monthlyInterestRate: true,
         maxRepaymentMonths: true,
         maxLoanCorpusMultiple: true,
+        maxLoanAmount: true,
         distributionBase: true,
         distributeFines: true,
       },
@@ -191,6 +192,15 @@ export default async function GroupSettingsPage() {
               label={t.group.borrowingLimit}
               name="maxLoanCorpusMultiple"
               required
+            />
+            <Field
+              defaultValue={cycle ? Number(cycle.maxLoanAmount).toFixed(0) : "50000"}
+              hint={t.settings.maxLoanAmountHint}
+              label={t.settings.maxLoanAmount}
+              min="1000"
+              name="maxLoanAmount"
+              required
+              type="number"
             />
             <SelectField
               defaultValue={cycle?.distributionBase ?? "INTEREST_ONLY"}

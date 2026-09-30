@@ -5,10 +5,22 @@ import { getLocale, getMessages } from "@/lib/i18n";
 import { formatMemberName } from "@/lib/members";
 import { formatPaise } from "@/lib/money";
 import { previewDistribution } from "@/lib/services/distribution";
+import { generateInterestDues } from "@/lib/services/loans";
+import { prisma } from "@/lib/prisma";
 import { closeCycleAction } from "../actions";
 
 export default async function DistributionPage() {
   const scope = await requireGroupAdmin();
+
+  const cycle = await prisma.cycle.findFirst({
+    where: { groupId: scope.groupId, status: { in: ["ACTIVE", "DRAFT", "CLOSING"] } },
+    select: { id: true },
+  });
+
+  if (cycle) {
+    await generateInterestDues({ groupId: scope.groupId, cycleId: cycle.id }).catch(() => null);
+  }
+
   const [t, locale, preview] = await Promise.all([
     getMessages(),
     getLocale(),

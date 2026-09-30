@@ -144,6 +144,8 @@ export const en = {
     shareAmountHint: "Monthly contribution per 1 share (e.g. 1000)",
     interestHint: "Percent per month, for example 3",
     multipleHint: "Multiple of the corpus a member has paid in",
+    maxLoanAmount: "Max loan amount (₹)",
+    maxLoanAmountHint: "Maximum loan allowed per member (e.g. 50000). Only 1 active loan allowed at a time.",
     shareFines: "Share fines with members",
     fineRules: "Fine rules",
     fineRulesHint:

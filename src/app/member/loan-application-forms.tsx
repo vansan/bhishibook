@@ -32,10 +32,14 @@ type MemberOption = {
 export function ApplyLoanModal({
   members,
   currentMemberId,
+  hasActiveLoan = false,
+  maxLoanAmount = 50000,
   labels,
 }: {
   members: MemberOption[];
   currentMemberId: string;
+  hasActiveLoan?: boolean;
+  maxLoanAmount?: number;
   labels: {
     applyBtn: string;
     modalTitle: string;
@@ -88,27 +92,45 @@ export function ApplyLoanModal({
               </button>
             </div>
 
-            <ActionForm
-              action={applyForLoanAction}
-              className="mt-4 space-y-4"
-              pendingLabel={labels.submittingLabel}
-              submitLabel={labels.applyBtn}
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label={labels.amountLabel}
-                  name="amount"
-                  placeholder="e.g. 50000"
-                  required
-                />
-                <Field
-                  defaultValue="6"
-                  label={labels.termLabel}
-                  name="termMonths"
-                  required
-                  type="number"
-                />
+            {hasActiveLoan ? (
+              <div className="mt-4 space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <p className="font-semibold text-amber-900">
+                  ⚠️ आपले आधीचे कर्ज सुरू आहे (Active Loan)
+                </p>
+                <p className="text-xs leading-relaxed text-amber-800">
+                  भिशीच्या नियमानुसार एका वेळी एकच कर्ज घेता येते. आधीचे कर्ज पूर्ण फेडल्यावरच (Clear झाल्यावर) आपण नवीन कर्जासाठी अर्ज करू शकता.
+                </p>
+                <button
+                  className="mt-2 w-full rounded-md bg-amber-600 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+                  onClick={() => setIsOpen(false)}
+                  type="button"
+                >
+                  समजले (Close)
+                </button>
               </div>
+            ) : (
+              <ActionForm
+                action={applyForLoanAction}
+                className="mt-4 space-y-4"
+                pendingLabel={labels.submittingLabel}
+                submitLabel={labels.applyBtn}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    hint={`कमाल मर्यादा: ₹${maxLoanAmount.toLocaleString("en-IN")}`}
+                    label={labels.amountLabel}
+                    name="amount"
+                    placeholder={`उदा. ${maxLoanAmount}`}
+                    required
+                  />
+                  <Field
+                    defaultValue="6"
+                    label={labels.termLabel}
+                    name="termMonths"
+                    required
+                    type="number"
+                  />
+                </div>
 
               <Field
                 label={labels.purposeLabel}
@@ -183,9 +205,10 @@ export function ApplyLoanModal({
                 </div>
               </div>
             </ActionForm>
-          </div>
+          )}
         </div>
-      ) : null}
+      </div>
+    ) : null}
     </div>
   );
 }

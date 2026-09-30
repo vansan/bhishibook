@@ -199,6 +199,7 @@ export type CycleInput = {
   monthlyInterestRate: string;
   maxRepaymentMonths: number;
   maxLoanCorpusMultiple: string;
+  maxLoanAmount?: string;
   distributionBase: DistributionBase;
   distributeFines: boolean;
 };
@@ -218,6 +219,9 @@ function validateCycle(input: CycleInput): void {
   }
   if (Number(input.maxLoanCorpusMultiple) <= 0) {
     throw new Error("The borrowing limit must be more than zero");
+  }
+  if (input.maxLoanAmount && Number(input.maxLoanAmount) <= 0) {
+    throw new Error("The max loan amount must be more than zero");
   }
   if (monthsBetween(input.startsOn, input.endsOn).length > 120) {
     throw new Error("A cycle cannot run longer than 10 years");
@@ -253,6 +257,7 @@ export async function createCycle(input: CycleInput & {
         monthlyInterestRate: input.monthlyInterestRate,
         maxRepaymentMonths: input.maxRepaymentMonths,
         maxLoanCorpusMultiple: input.maxLoanCorpusMultiple,
+        maxLoanAmount: input.maxLoanAmount ?? "50000.00",
         distributionBase: input.distributionBase,
         distributeFines: input.distributeFines,
       },
@@ -294,6 +299,7 @@ export async function updateCycle(input: CycleInput & {
         monthlyInterestRate: true,
         maxRepaymentMonths: true,
         maxLoanCorpusMultiple: true,
+        maxLoanAmount: true,
         distributionBase: true,
         distributeFines: true,
       },
@@ -314,6 +320,7 @@ export async function updateCycle(input: CycleInput & {
         monthlyInterestRate: input.monthlyInterestRate,
         maxRepaymentMonths: input.maxRepaymentMonths,
         maxLoanCorpusMultiple: input.maxLoanCorpusMultiple,
+        maxLoanAmount: input.maxLoanAmount ?? before.maxLoanAmount,
         distributionBase: input.distributionBase,
         distributeFines: input.distributeFines,
       },

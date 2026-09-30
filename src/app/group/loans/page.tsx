@@ -7,6 +7,7 @@ import { formatMemberName } from "@/lib/members";
 import { atLeastZero, decimalToPaise, formatPaise, sumPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { getGroupLoanApplications } from "@/lib/services/loan-applications";
+import { generateInterestDues } from "@/lib/services/loans";
 import { createLoanAction, generateInterestAction } from "../actions";
 import { LoanApplicationsAdmin } from "./loan-applications-admin";
 import { LoanRow } from "./loan-row";
@@ -20,7 +21,7 @@ export default async function LoansPage() {
   const cycle = await prisma.cycle.findFirst({
     where: { groupId: scope.groupId, status: { in: ["ACTIVE", "DRAFT", "CLOSING"] } },
     orderBy: { startsOn: "desc" },
-    select: { id: true, maxLoanCorpusMultiple: true, monthlyInterestRate: true },
+    select: { id: true, maxLoanCorpusMultiple: true, monthlyInterestRate: true, maxLoanAmount: true },
   });
 
   if (!cycle) {
@@ -34,6 +35,9 @@ export default async function LoansPage() {
     );
   }
 
+  // Auto-generate interest dues up to current date so interest is never missing or zero
+  await generateInterestDues({ groupId: scope.groupId, cycleId: cycle.id }).catch(() => null);
+
   const [members, loans, applications] = await Promise.all([
     prisma.groupMember.findMany({
       where: { groupId: scope.groupId, status: "ACTIVE" },
@@ -43,6 +47,7 @@ export default async function LoansPage() {
         displayName: true,
         displayNameMr: true,
         contributions: { select: { amountPaid: true } },
+        loans: { where: { status: "ACTIVE" }, select: { id: true } },
       },
     }),
     prisma.loan.findMany({
@@ -70,14 +75,17 @@ export default async function LoansPage() {
   const multiple = Number(cycle.maxLoanCorpusMultiple.toFixed(2));
 
   const memberOptions = members.map((member) => {
-    const contributed = sumPaise(
-      member.contributions.map((row) => decimalToPaise(row.amountPaid))
-    );
-    const headroom = Math.floor(contributed * multiple);
     const mName = formatMemberName(member, locale);
+    const hasActiveLoan = member.loans && member.loans.length > 0;
+    if (hasActiveLoan) {
+      return {
+        value: member.id,
+        label: `${mName} — ⚠️ आधीचे कर्ज सुरू आहे (Active Loan)`,
+      };
+    }
     return {
       value: member.id,
-      label: `${mName} — ${t.loans.canBorrow} ${formatPaise(headroom, whole)}`,
+      label: mName,
     };
   });
 
@@ -127,7 +135,7 @@ export default async function LoansPage() {
               required
             />
             <Field
-              hint={`${t.group.borrowingLimit}: ${multiple}x`}
+              hint={`${t.group.borrowingLimit}: ${multiple}x | कमाल मर्यादा: ₹${Number(cycle.maxLoanAmount).toLocaleString("en-IN")}`}
               label={t.loans.principal}
               name="principal"
               required
@@ -197,6 +205,9 @@ export default async function LoansPage() {
                 <th className="px-4 py-3 font-medium" scope="col">
                   {t.common.member}
                 </th>
+                <th className="px-4 py-3 font-medium" scope="col">
+                  {t.loans.disbursedOn}
+                </th>
                 <th className="px-4 py-3 text-right font-medium" scope="col">
                   {t.loans.principal}
                 </th>
@@ -265,6 +276,7 @@ export default async function LoansPage() {
                       principalRaw: (principal / 100).toFixed(2),
                       principalLabel: formatPaise(principal, whole),
                       outstandingPrincipalLabel: formatPaise(outstandingPrincipal, whole),
+                      outstandingPrincipalRupees: (outstandingPrincipal / 100).toFixed(2),
                       interestRate: loan.interestRate.toString(),
                       disbursedOnRaw: loan.disbursedOn.toISOString().slice(0, 10),
                       notes: loan.notes,
@@ -272,6 +284,7 @@ export default async function LoansPage() {
                       totalOwedRupees: (totalOwed / 100).toFixed(2),
                       interestLabel: formatPaise(outstandingInterest, whole),
                       fineLabel: formatPaise(outstandingFine, whole),
+                      interestRupees: ((outstandingInterest + outstandingFine) / 100).toFixed(2),
                       dueOn: loan.dueOn.toISOString().slice(0, 10),
                       isClosed: loan.status === "CLOSED",
                       isOverdue: loan.status !== "CLOSED" && loan.dueOn < new Date(),

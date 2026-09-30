@@ -146,6 +146,8 @@ export const mr: Messages = {
     shareAmountHint: "१ शेअरसाठी मासिक हप्ता रक्कम (उदा. १०००)",
     interestHint: "दरमहा टक्के, उदाहरणार्थ 3",
     multipleHint: "सभासदाने जमा केलेल्या निधीच्या पट",
+    maxLoanAmount: "कमाल कर्ज मर्यादा (₹)",
+    maxLoanAmountHint: "प्रत्येक सभासदाला जास्तीत जास्त एवढेच कर्ज घेता येईल (उदा. ५०,०००). एका वेळी एकच कर्ज घेता येईल.",
     shareFines: "दंड सभासदांमध्ये वाटा",
     fineRules: "दंड नियम",
     fineRulesHint:

@@ -50,8 +50,8 @@ export async function applyForLoanAction(
       .map((v) => String(v).trim())
       .filter(Boolean);
 
-    if (guarantorMemberIds.length < 2) {
-      return { error: "Minimum 2 Jamin (guarantors) are mandatory." };
+    if (guarantorMemberIds.length < 3) {
+      return { error: "किमान ३ जामीनदार (Guarantors) निवडणे बंधनकारक आहे / Minimum 3 Jamin (guarantors) are mandatory." };
     }
 
     if (guarantorMemberIds.includes(scope.memberId)) {

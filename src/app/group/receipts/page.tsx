@@ -6,6 +6,7 @@ import { decimalToPaise, formatPaise } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { whatsappShareUrl } from "@/lib/receipt-text";
 import { ReceiptActions } from "./receipt-actions";
+import { ReceiptBadge } from "@/components/ui/receipt-badge";
 
 export default async function ReceiptsPage() {
   const scope = await requireGroupAdmin();
@@ -80,7 +81,9 @@ export default async function ReceiptsPage() {
                   <td className="px-4 py-3">
                     {receipt.member ? formatMemberName(receipt.member, locale) : "-"}
                   </td>
-                  <td className="px-4 py-3">{receipt.receiptType}</td>
+                  <td className="px-4 py-3">
+                    <ReceiptBadge locale={locale} type={receipt.receiptType} />
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {formatPaise(decimalToPaise(receipt.amount), whole)}
                   </td>
